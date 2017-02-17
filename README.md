@@ -6,6 +6,8 @@
 - 简化反射工具: `com.vdian.jbox.reflections`
 - 通用调度框架: `com.vdian.jbox.scheduler`
 - 其他工具: `com.vdian.jbox.utils`
-    -
-
-常用工具集合, 如定制的线程池(扩展Executers、ThreadPool接口)、性能监控工具(Trace、RT、QPS)、对象字节大小SizeOf, 反射工具(List转Map、List属性抽取)、flood AB简易测试框架、通用调用框架等.
+    - `DataUtils`
+    - `JsonAppender`
+    - `Performer`: 性能测试工具, 监控如***RT***、***QPS***
+    - `ReflectionUtils`: List转Map、List属性抽取等功能
+    - `SizeOf`: 精确测量Java对象大小(javaagent)
