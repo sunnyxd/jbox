@@ -12,7 +12,7 @@ import org.apache.curator.retry.ExponentialBackoffRetry;
  * @author jifang
  * @since 2017/2/16 下午6:01.
  */
-public abstract class AbsZooKeeperFlood extends AbFloodExperiment {
+public abstract class AbstractZKFlood extends AbFloodExperiment {
 
     private static final String FLOOD_NAMESPACE = "flood";
     private volatile double rate;
@@ -21,11 +21,11 @@ public abstract class AbsZooKeeperFlood extends AbFloodExperiment {
 
     private volatile Object outValue;
 
-    public AbsZooKeeperFlood(String connectString) throws Exception {
+    public AbstractZKFlood(String connectString) throws Exception {
         this(connectString, -1);
     }
 
-    public AbsZooKeeperFlood(String connectString, int sessionTimeoutMs) throws Exception {
+    public AbstractZKFlood(String connectString, int sessionTimeoutMs) throws Exception {
         CuratorFrameworkFactory.Builder builder = CuratorFrameworkFactory.builder()
                 .connectString(connectString)
                 .retryPolicy(new ExponentialBackoffRetry(1000, 3))

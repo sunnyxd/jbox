@@ -1,6 +1,6 @@
 package com.vdian.jbox;
 
-import com.vdian.jbox.flood.AbsZooKeeperFlood;
+import com.vdian.jbox.flood.AbstractZKFlood;
 
 import java.util.Random;
 
@@ -8,7 +8,7 @@ import java.util.Random;
  * @author jifang
  * @since 2016/11/3 下午4:21.
  */
-public class FeedCenterFloodExp extends AbsZooKeeperFlood {
+public class FeedCenterFloodExp extends AbstractZKFlood {
 
     public FeedCenterFloodExp(String connectString) throws Exception {
         super(connectString);
