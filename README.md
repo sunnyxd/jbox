@@ -10,4 +10,4 @@
     - `JsonAppender`
     - `Performer`: 性能测试工具, 监控如***RT***、***QPS***
     - `ReflectionUtils`: List转Map、List属性抽取等功能
-    - `SizeOf`: 精确测量Java对象大小(javaagent)
+    - `SizeOf`: 精确测量Java对象大小(-javaagent)
