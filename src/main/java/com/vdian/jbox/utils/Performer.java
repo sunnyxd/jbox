@@ -1,8 +1,9 @@
 package com.vdian.jbox.utils;
 
 
+import com.vdian.jbox.annotation.ThreadSafe;
+
 import java.util.Calendar;
-import java.util.Date;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**

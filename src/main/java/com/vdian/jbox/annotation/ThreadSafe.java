@@ -1,4 +1,4 @@
-package com.vdian.jbox.utils;
+package com.vdian.jbox.annotation;
 
 import java.lang.annotation.*;
 
@@ -18,5 +18,5 @@ import java.lang.annotation.*;
 @Documented
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
-@interface ThreadSafe {
+public @interface ThreadSafe {
 }
