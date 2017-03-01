@@ -218,14 +218,6 @@ public class Collections3 {
         });
     }
 
-    private static Field getCollectionField(@NotNull @NotEmpty Collection collection, String fieldName) throws NoSuchFieldException {
-        Field field = collection.toArray()[0]
-                .getClass()
-                .getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return field;
-    }
-
     private static Map mapInit(Collection list, MapFunction function) throws NoSuchFieldException {
         Map map;
         if (list == null || list.isEmpty()) {
@@ -235,6 +227,14 @@ public class Collections3 {
         }
 
         return map;
+    }
+
+    private static Field getCollectionField(@NotNull @NotEmpty Collection collection, String fieldName) throws NoSuchFieldException {
+        Field field = collection.toArray()[0]
+                .getClass()
+                .getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field;
     }
 
     private interface MapFunction {
