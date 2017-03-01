@@ -9,5 +9,5 @@
     - `DataUtils`
     - `JsonAppender`
     - `Performer`: 性能测试工具, 监控如***RT***、***QPS***
-    - `ReflectionUtils`: List转Map、List属性抽取等功能
+    - `Collections3`: `Collection`相关功能: `Collection`属性抽取; `List`转`Map`, `List`转`MultiMap`
     - `SizeOf`: 精确测量Java对象大小(-javaagent)
