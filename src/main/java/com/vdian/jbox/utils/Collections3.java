@@ -1,7 +1,7 @@
 package com.vdian.jbox.utils;
 
-import com.sun.istack.internal.NotNull;
 import com.vdian.jbox.annotation.NotEmpty;
+import com.vdian.jbox.annotation.NotNull;
 
 import java.lang.reflect.Field;
 import java.util.*;

@@ -8,7 +8,7 @@
 
     <groupId>com.vdian.jbox</groupId>
     <artifactId>jbox</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.2-SNAPSHOT</version>
 
     <properties>
         <guava.version>20.0</guava.version>
@@ -168,5 +168,16 @@
 
         </plugins>
     </build>
+
+    <!--<distributionManagement>-->
+        <!--<repository>-->
+            <!--<id>releases</id>-->
+            <!--<url>http://mvn.vdian.net:8080/nexus/content/repositories/releases/</url>-->
+        <!--</repository>-->
+        <!--<snapshotRepository>-->
+            <!--<id>snapshots</id>-->
+            <!--<url>http://mvn.vdian.net:8080/nexus/content/repositories/snapshots/</url>-->
+        <!--</snapshotRepository>-->
+    <!--</distributionManagement>-->
 
 </project>
