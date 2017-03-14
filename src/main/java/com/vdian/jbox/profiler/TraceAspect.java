@@ -19,7 +19,7 @@ public class TraceAspect {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("com.vdian.jbox.profiler");
 
-    private static final Logger ROOT_LOGGER = LoggerFactory.getLogger("ROOT");
+    private static final Logger ROOT_LOGGER = LoggerFactory.getLogger(TraceAspect.class);
 
     @Around("@annotation(com.vdian.jbox.profiler.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {

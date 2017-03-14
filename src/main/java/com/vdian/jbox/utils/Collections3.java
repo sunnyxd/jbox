@@ -93,7 +93,7 @@ public class Collections3 {
     private static List listInit(Collection list, ListFunction function) throws NoSuchFieldException {
         List result;
         if (list == null || list.isEmpty()) {
-            result = Collections.emptyList();
+            result = new ArrayList();
         } else {
             result = function.process(list);
         }
@@ -221,7 +221,7 @@ public class Collections3 {
     private static Map mapInit(Collection list, MapFunction function) throws NoSuchFieldException {
         Map map;
         if (list == null || list.isEmpty()) {
-            map = Collections.emptyMap();
+            map = new HashMap();
         } else {
             map = function.process(list);
         }
