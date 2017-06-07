@@ -1,7 +1,7 @@
-package com.vdian.jbox.utils;
+package com.alibaba.jbox.utils;
 
-import com.vdian.jbox.annotation.NotEmpty;
-import com.vdian.jbox.annotation.NotNull;
+import com.alibaba.jbox.annotation.NotNull;
+import com.alibaba.jbox.annotation.NotEmpty;
 
 import java.lang.reflect.Field;
 import java.util.*;

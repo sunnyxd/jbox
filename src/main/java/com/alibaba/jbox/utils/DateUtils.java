@@ -1,8 +1,7 @@
-package com.vdian.jbox.utils;
+package com.alibaba.jbox.utils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 
 /**

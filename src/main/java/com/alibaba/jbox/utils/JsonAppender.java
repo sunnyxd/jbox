@@ -1,4 +1,4 @@
-package com.vdian.jbox.utils;
+package com.alibaba.jbox.utils;
 
 import com.alibaba.fastjson.JSON;
 import com.google.common.base.Strings;

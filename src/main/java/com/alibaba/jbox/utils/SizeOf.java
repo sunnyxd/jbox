@@ -1,4 +1,4 @@
-package com.vdian.jbox.utils;
+package com.alibaba.jbox.utils;
 
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Array;
@@ -12,7 +12,7 @@ import java.util.Queue;
 /**
  * 准确测量对象大小
  * Usage: append -javaagent:${jbox.jar file location} VM options
- * like as -javaagent:/Users/${user}/.m2/com/vdian/jbox/${jbox-version}/${jbox-version}.jar
+ * like as -javaagent:/Users/${user}/.m2/com/alibaba/jbox/${jbox-version}/${jbox-version}.jar
  *
  * @author jifang
  * @since 2016/12/11 上午11:23.

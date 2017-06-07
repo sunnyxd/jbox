@@ -1,6 +1,6 @@
-package com.vdian.jbox.profiler;
+package com.alibaba.jbox.profiler;
 
-import com.vdian.jbox.utils.JboxUtils;
+import com.alibaba.jbox.utils.JboxUtils;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -17,11 +17,11 @@ import java.util.Arrays;
 @Aspect
 public class TraceAspect {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("com.vdian.jbox.profiler");
+    private static final Logger LOGGER = LoggerFactory.getLogger("com.alibaba.jbox.profiler");
 
     private static final Logger ROOT_LOGGER = LoggerFactory.getLogger(TraceAspect.class);
 
-    @Around("@annotation(com.vdian.jbox.profiler.Trace)")
+    @Around("@annotation(com.alibaba.jbox.profiler.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {
         long start = System.currentTimeMillis();
         Object result;

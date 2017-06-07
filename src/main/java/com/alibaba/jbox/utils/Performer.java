@@ -1,7 +1,7 @@
-package com.vdian.jbox.utils;
+package com.alibaba.jbox.utils;
 
 
-import com.vdian.jbox.annotation.ThreadSafe;
+import com.alibaba.jbox.annotation.ThreadSafe;
 
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicLong;

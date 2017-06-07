@@ -1,4 +1,4 @@
-package com.vdian.jbox.utils;
+package com.alibaba.jbox.utils;
 
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;

@@ -1,4 +1,4 @@
-package com.vdian.jbox.flood;
+package com.alibaba.jbox.flood;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;

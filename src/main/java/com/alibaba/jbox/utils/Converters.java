@@ -1,4 +1,4 @@
-package com.vdian.jbox.utils;
+package com.alibaba.jbox.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
