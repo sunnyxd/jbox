@@ -12,22 +12,22 @@ public class TaskSchedulerTest {
 
     @Test
     public void test() throws Exception {
-        TaskScheduler scheduler = new TaskScheduler();
+        TaskScheduler scheduler = new TaskScheduler(true);
         scheduler.register(new ScheduleTask() {
 
             @Override
-            public void scheduleTask() {
+            public void invoke() {
                 System.out.println("Helo");
             }
 
             @Override
-            public long interval() {
+            public long period() {
                 return 1000;
             }
         });
-        scheduler.setUp();
+        scheduler.start();
 
         Thread.sleep(10000000);
-        scheduler.tearDown();
+        scheduler.shutdown();
     }
 }

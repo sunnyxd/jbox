@@ -1,11 +1,12 @@
 package com.alibaba.jbox.scheduler;
 
+import com.alibaba.jbox.annotation.NotNull;
+import org.apache.commons.lang3.tuple.Pair;
+
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author jifang
@@ -16,9 +17,15 @@ public class TaskScheduler {
     // 调度基本时间片(粒度不能小于100MS)
     private static final int BASE_TIME_FRAGMENT = 100;
 
-    private static final Timer executor = new Timer("TaskScheduler");
+    private static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable);
+        thread.setName("jbox:task-scheduler");
+        thread.setDaemon(true);
 
-    private static final Map<ScheduleTask, Long> taskMap = new ConcurrentHashMap<>();
+        return thread;
+    });
+
+    private static final ConcurrentMap<ScheduleTask, Pair<AtomicLong, Long>> taskMap = new ConcurrentHashMap<>();
 
     private boolean invokeOnStart;
 
@@ -30,59 +37,49 @@ public class TaskScheduler {
         this.invokeOnStart = invokeOnStart;
     }
 
-    private void start() {
-        executor.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                for (ScheduleTask task : taskMap.keySet()) {
-
-                    long currentInterval = taskMap.get(task) + 1;
-                    long needInterval = task.interval() / BASE_TIME_FRAGMENT;
-
-                    if (currentInterval >= needInterval) {
-                        // 执行任务
-                        invokeTask(task);
-                        // 重新计时
-                        currentInterval = 0;
-                    }
-                    taskMap.put(task, currentInterval);
-                }
-            }
-        }, 0, BASE_TIME_FRAGMENT);
-    }
-
-    public void register(ScheduleTask task) {
-        taskMap.put(task, 0L);
-
-        if (invokeOnStart) {
-            invokeTask(task);
-        }
-
-        String name = task.getClass().getName();
-        long interval = task.interval();
-        ScheduleTask.SCHEDULE_TASK_LOGGER.info("task [{}] registered, interval [{}]", name, interval);
-    }
-
-    private void invokeTask(ScheduleTask task) {
-        try {
-            task.scheduleTask();
-            ScheduleTask.SCHEDULE_TASK_LOGGER.debug("task {} invoked", task);
-        } catch (Exception e) {
-            ScheduleTask.SCHEDULE_TASK_LOGGER.error("task {} invoke error", task, e);
-        }
+    public void register(@NotNull ScheduleTask task) {
+        taskMap.put(task, Pair.of(new AtomicLong(0L), task.period() / BASE_TIME_FRAGMENT));
+        ScheduleTask.SCHEDULE_TASK_LOGGER.info("task [{}] registered, period [{}]", task.taskName(), task.period());
     }
 
     @PostConstruct
-    public void setUp() {
-        this.start();
+    public void start() {
+        executor.scheduleAtFixedRate(this::triggerTask,
+                invokeOnStart ? 0 : BASE_TIME_FRAGMENT,
+                BASE_TIME_FRAGMENT, TimeUnit.MILLISECONDS);
 
         ScheduleTask.SCHEDULE_TASK_LOGGER.info("TaskScheduler Start ...");
     }
 
-    @PreDestroy
-    public void tearDown() {
-        executor.cancel();
+    private void triggerTask() {
 
-        ScheduleTask.SCHEDULE_TASK_LOGGER.info("TaskScheduler Stop ... {}");
+        taskMap.forEach((task, pair) -> {
+            AtomicLong currentInterval = pair.getLeft();
+            long currentIntervalValue = currentInterval.addAndGet(1L);
+            long periodThresholdValue = pair.getRight();
+
+            if (currentIntervalValue >= periodThresholdValue) {
+                // 执行任务
+                invokeTask(task);
+                // 重新开始计时
+                currentInterval.set(0L);
+            }
+        });
+    }
+
+    private void invokeTask(ScheduleTask task) {
+        try {
+            task.invoke();
+            ScheduleTask.SCHEDULE_TASK_LOGGER.debug("task [{}] invoked", task.taskName());
+        } catch (Exception e) {
+            ScheduleTask.SCHEDULE_TASK_LOGGER.error("task [{}] invoke error", task.taskName(), e);
+        }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        executor.shutdown();
+
+        ScheduleTask.SCHEDULE_TASK_LOGGER.info("TaskScheduler shutdown ...");
     }
 }

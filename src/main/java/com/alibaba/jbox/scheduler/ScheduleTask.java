@@ -25,7 +25,11 @@ public interface ScheduleTask {
 
     long ONE_DAY_INTERVAL = 2 * _12_HOUR_INTERVAL;
 
-    void scheduleTask() throws Exception;
+    void invoke() throws Exception;
 
-    long interval();
+    long period();
+
+    default String taskName() {
+        return this.getClass().getName();
+    }
 }

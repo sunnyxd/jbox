@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 public class ThreadPoolMonitor extends AbstractScheduleTask implements LoggerInter {
 
     @Override
-    public void scheduleTask() throws Exception {
+    public void invoke() throws Exception {
 
         StringBuilder sb = new StringBuilder(1000);
         sb.append("---------------------------Thread Pool Monitor---")
@@ -47,7 +47,7 @@ public class ThreadPoolMonitor extends AbstractScheduleTask implements LoggerInt
     }
 
     @Override
-    public long interval() {
+    public long period() {
         return _1M_INTERVAL;
     }
 
