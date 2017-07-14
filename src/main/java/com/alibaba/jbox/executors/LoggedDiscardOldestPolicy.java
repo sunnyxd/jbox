@@ -1,4 +1,4 @@
-package com.alibaba.jbox.thread;
+package com.alibaba.jbox.executors;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -19,7 +19,7 @@ public class LoggedDiscardOldestPolicy extends ThreadPoolExecutor.DiscardOldestP
         if (!executor.isShutdown()) {
             Runnable discardRunnable = executor.getQueue().poll();
             if (discardRunnable instanceof AsyncRunnable) {
-                String taskInfo = ((AsyncRunnable) discardRunnable).getAsyncTaskInfo();
+                String taskInfo = ((AsyncRunnable) discardRunnable).taskInfo();
 
                 String msg = String.format("policy: [DiscardOldest], task:[%s] discard, group:[%s] runnable queue remaining:[%s]",
                         taskInfo,

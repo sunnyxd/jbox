@@ -1,11 +1,9 @@
-package com.alibaba.jbox.thread;
+package com.alibaba.jbox.executors;
 
 import com.alibaba.jbox.scheduler.ScheduleTask;
-import org.apache.commons.proxy.ProxyFactory;
 import org.apache.commons.proxy.factory.cglib.CglibProxyFactory;
 
 import javax.annotation.PreDestroy;
-import java.util.Map;
 import java.util.concurrent.*;
 
 /**
@@ -37,7 +35,7 @@ import java.util.concurrent.*;
  */
 public class ThreadPoolManager implements LoggerInter {
 
-    static final ConcurrentMap<String, ExecutorService> EXECUTOR_MAP = new ConcurrentHashMap<>();
+    static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
     public static ExecutorService fixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runQueueSize) {
         // 队满拒绝策略
@@ -46,12 +44,10 @@ public class ThreadPoolManager implements LoggerInter {
         return fixedMinMaxThreadPool(group, minPoolSize, maxPoolSize, runQueueSize, rejectHandler);
     }
 
-    public static ExecutorService fixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runQueueSize, RejectedExecutionHandler rejectHandler) {
-        ExecutorService executor = EXECUTOR_MAP.get(group);
-        // single check idiom - can cause repeated initialization
-        if (executor == null) {
+    public static ExecutorService fixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize, RejectedExecutionHandler rejectHandler) {
+        return executors.computeIfAbsent(group, (key) -> {
             // 任务缓存队列
-            BlockingQueue<Runnable> runnableQueue = new ArrayBlockingQueue<>(runQueueSize);
+            BlockingQueue<Runnable> runnableQueue = new ArrayBlockingQueue<>(runnableQueueSize);
 
             ThreadFactory threadFactory = new NamedThreadFactory(group);
 
@@ -61,59 +57,38 @@ public class ThreadPoolManager implements LoggerInter {
                     threadFactory,
                     rejectHandler);
 
-            executor = createProxyExecutor(threadPoolExecutor);
-
-            EXECUTOR_MAP.put(group, executor);
-        }
-
-        return executor;
+            return createExecutorProxy(threadPoolExecutor);
+        });
     }
 
     public static ExecutorService fixedThreadPool(String group, int poolSize) {
+        return executors.computeIfAbsent(group, (key) -> {
 
-        ExecutorService executor = EXECUTOR_MAP.get(group);
-        if (executor == null) {
-            ThreadFactory threadFactory = new NamedThreadFactory(group);
+            ExecutorService executor = Executors.newFixedThreadPool(poolSize, new NamedThreadFactory(group));
 
-            ExecutorService fixedThreadPool = Executors.newFixedThreadPool(poolSize, threadFactory);
-
-            executor = createProxyExecutor(fixedThreadPool);
-            EXECUTOR_MAP.put(group, executor);
-        }
-
-        return executor;
+            return createExecutorProxy(executor);
+        });
     }
 
     public static ExecutorService cachedThreadPool(String group) {
+        return executors.computeIfAbsent(group, (key) -> {
+            ExecutorService executor = Executors.newCachedThreadPool(new NamedThreadFactory(group));
 
-        ExecutorService executor = EXECUTOR_MAP.get(group);
-        if (executor == null) {
-            ThreadFactory threadFactory = new NamedThreadFactory(group);
-            ExecutorService cachedThreadPool = Executors.newCachedThreadPool(threadFactory);
-
-            executor = createProxyExecutor(cachedThreadPool);
-            EXECUTOR_MAP.put(group, executor);
-        }
-
-        return executor;
+            return createExecutorProxy(executor);
+        });
     }
 
     public static ExecutorService singleThreadExecutor(String group) {
-        ExecutorService executor = EXECUTOR_MAP.get(group);
-        if (executor == null) {
-            ThreadFactory threadFactory = new NamedThreadFactory(group);
-            ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor(threadFactory);
+        return executors.computeIfAbsent(group, (key) -> {
 
-            executor = createProxyExecutor(singleThreadExecutor);
-            EXECUTOR_MAP.put(group, executor);
-        }
+            ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory(group));
 
-        return executor;
+            return createExecutorProxy(executor);
+        });
     }
 
-    private static ExecutorService createProxyExecutor(ExecutorService executor) {
-        ProxyFactory factory = new CglibProxyFactory();
-        Object proxy = factory.createInterceptorProxy(
+    private static ExecutorService createExecutorProxy(ExecutorService executor) {
+        Object proxy = new CglibProxyFactory().createInterceptorProxy(
                 executor,
                 new RunnableDecoratorInterceptor(),
                 new Class[]{ExecutorService.class}
@@ -124,17 +99,12 @@ public class ThreadPoolManager implements LoggerInter {
 
     @PreDestroy
     public void destroy() {
-        Map<String, ExecutorService> executors = EXECUTOR_MAP;
-        for (Map.Entry<String, ExecutorService> entry : executors.entrySet()) {
-            ExecutorService executor = entry.getValue();
-
-            if (!executor.isShutdown()) {
-                executor.shutdown();
-
-                String msg = String.format("thread pool [%s] is shutdown", entry.getKey());
-                MONITOR_LOGGER.info(msg);
-                LOGGER.info(msg);
-            }
-        }
+        executors.entrySet().stream()
+                .filter(entry -> !entry.getValue().isShutdown())
+                .forEach(entry -> {
+                    entry.getValue().shutdown();
+                    MONITOR_LOGGER.info("executor [{}] is shutdown", entry.getKey());
+                    LOGGER.info("executor [{}] is shutdown", entry.getKey());
+                });
     }
 }

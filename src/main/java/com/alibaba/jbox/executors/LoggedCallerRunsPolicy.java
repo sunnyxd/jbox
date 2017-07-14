@@ -1,4 +1,4 @@
-package com.alibaba.jbox.thread;
+package com.alibaba.jbox.executors;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -18,7 +18,7 @@ public class LoggedCallerRunsPolicy extends ThreadPoolExecutor.CallerRunsPolicy 
     public void rejectedExecution(Runnable runnable, ThreadPoolExecutor executor) {
 
         if (runnable instanceof AsyncRunnable) {
-            String taskInfo = ((AsyncRunnable) runnable).getAsyncTaskInfo();
+            String taskInfo = ((AsyncRunnable) runnable).taskInfo();
 
             String msg = String.format("policy: [CallerRuns], task:[%s] execute reject, group:[%s] runnable queue remaining:[%s]",
                     taskInfo,

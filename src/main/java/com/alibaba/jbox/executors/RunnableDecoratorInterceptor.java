@@ -1,4 +1,4 @@
-package com.alibaba.jbox.thread;
+package com.alibaba.jbox.executors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.proxy.Interceptor;
@@ -36,9 +36,9 @@ class RunnableDecoratorInterceptor implements Interceptor {
 
     /**
      * proxy:
-     * 1. ${code void execute(Runnable command); }
-     * 2. ${code Future<?> submit(Runnable task); }
-     * 3. ${code Future<T> submit(Runnable task, T result); }
+     * 1. ${@code void execute(Runnable command); }
+     * 2. ${@code Future<?> submit(Runnable task); }
+     * 3. ${@code Future<T> submit(Runnable task, T result); }
      *
      * @param method
      * @param arguments
