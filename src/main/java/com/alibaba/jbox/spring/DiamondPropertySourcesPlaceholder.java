@@ -229,7 +229,9 @@ public class DiamondPropertySourcesPlaceholder
     private Properties loadYamlResources() throws IOException {
         Properties properties = new Properties();
         for (Resource yamlResource : this.yamlResources) {
-            // attention : not support raw array yaml config
+            /**
+             * attention!!! : not support raw array yaml config
+              */
             Map<?, ?> yamlMap = (Map<?, ?>) new Yaml().load(yamlResource.getInputStream());
 
             yamlMap.forEach(properties::put);
@@ -260,7 +262,7 @@ public class DiamondPropertySourcesPlaceholder
     }
 
     private void handleDataChanged(JSONObject currentJsonConfig) {
-        initBeansMap(this.beanFactory);
+        initBeansMap(beanFactory);
         for (Map.Entry<String, Object> entry : currentJsonConfig.entrySet()) {
 
             String key = entry.getKey();

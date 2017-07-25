@@ -14,12 +14,7 @@ public class DateUtils {
 
     private static final String pattern = "yyyy-MM-dd HH:mm:ss";
     
-    private static final ThreadLocal<SimpleDateFormat> formatterMap = new ThreadLocal<SimpleDateFormat>() {
-        @Override
-        protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat(pattern);
-        }
-    };
+    private static final ThreadLocal<SimpleDateFormat> formatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(pattern));
 
     public static String format(Object obj) {
         return formatterMap.get().format(obj);

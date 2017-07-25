@@ -1,6 +1,7 @@
-package com.alibaba.jbox.profiler;
+package com.alibaba.jbox.trace;
 
 import com.alibaba.jbox.utils.JboxUtils;
+import com.taobao.eagleeye.EagleEye;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -17,12 +18,32 @@ import java.util.Arrays;
 @Aspect
 public class TraceAspect {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("com.alibaba.jbox.profiler");
+    private static boolean hasMdc = false;
+
+    static {
+        try {
+            Class.forName("org.slf4j.MDC");
+            hasMdc = true;
+        } catch (Exception e) {
+            System.err.println("slf4j not exits");
+        }
+    }
+
+    /**
+     * add logback.xml or log4j.xml {@code %X{traceId} }
+     * in {@code <pattern></pattern>} config
+     */
+    private static final String TRACE_ID = "traceId";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("com.alibaba.jbox.trace");
 
     private static final Logger ROOT_LOGGER = LoggerFactory.getLogger(TraceAspect.class);
 
-    @Around("@annotation(com.alibaba.jbox.profiler.Trace)")
+    @Around("@annotation(com.alibaba.jbox.trace.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {
+        if (hasMdc) {
+            org.slf4j.MDC.put(TRACE_ID, EagleEye.getTraceId());
+        }
         long start = System.currentTimeMillis();
         Object result;
         try {
@@ -30,6 +51,10 @@ public class TraceAspect {
         } catch (Throwable e) {
             ROOT_LOGGER.error("", e);
             throw e;
+        } finally {
+            if (hasMdc) {
+                org.slf4j.MDC.remove(TRACE_ID);
+            }
         }
 
         Method method = JboxUtils.getRealMethod(joinPoint);
@@ -45,11 +70,11 @@ public class TraceAspect {
     protected void onTimeOut(long constTime, Object target, Method method, Object[] args) {
         String clazzName = method.getDeclaringClass().getName();
         String methodName = method.getName();
-        String message = String.format("method: %s.%s invoke total cost %sms, params=%s",
+        String message = String.format("method: [%s.%s] invoke total cost [%s]ms, params=%s",
                 clazzName,
                 methodName,
                 constTime,
-                Arrays.asList(args));
+                Arrays.toString(args));
 
         LOGGER.warn(message);
     }

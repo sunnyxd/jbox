@@ -49,7 +49,7 @@ public class StreamForker<T> {
 
         List<BlockingQueue<T>> queues = new ArrayList<>(forks.size());
 
-        // convert Map<Object, Function> -> Map<Object, Future>
+        // transfer Map<Object, Function> -> Map<Object, Future>
         Map<Object, Future<?>> actions = new HashMap<>();
         forks.forEach((key, function) -> {
             BlockingQueue<T> queue = new LinkedBlockingQueue<>();

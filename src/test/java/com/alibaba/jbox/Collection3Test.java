@@ -31,13 +31,13 @@ public class Collection3Test {
 
     @Test
     public void testGetFieldList() throws NoSuchFieldException {
-        List<String> names = Collections3.getFieldListWithoutExclude(list, "name", "fq1");
+        List<String> names = Collections3.mapListExclude(list, "name", "fq1");
         System.out.println(names);
     }
 
     @Test
     public void testList2Map() throws NoSuchFieldException {
-        Map<String, Address> map = Collections3.list2Map(list, "name", "address");
+        Map<String, Address> map = Collections3.groupList(list, "name", "address");
         System.out.println(map);
     }
 }

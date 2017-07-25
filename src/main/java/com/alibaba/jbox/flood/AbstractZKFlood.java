@@ -5,7 +5,6 @@ import com.alibaba.fastjson.JSONObject;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.recipes.cache.NodeCache;
-import org.apache.curator.framework.recipes.cache.NodeCacheListener;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 
 /**
@@ -41,12 +40,9 @@ public abstract class AbstractZKFlood extends AbFloodExperiment {
         updateFloodValue(bytes);
         final NodeCache nodeCache = new NodeCache(client, nodeName());
         nodeCache.start();
-        nodeCache.getListenable().addListener(new NodeCacheListener() {
-            @Override
-            public void nodeChanged() throws Exception {
-                byte[] data = nodeCache.getCurrentData().getData();
-                updateFloodValue(data);
-            }
+        nodeCache.getListenable().addListener(() -> {
+            byte[] data = nodeCache.getCurrentData().getData();
+            updateFloodValue(data);
         });
     }
 

@@ -1,6 +1,6 @@
 <configuration>
 
-    <property name="pattern" value="%date %relative %p [%t] %c{20} %X{traceId} %file %m%n"/>
+    <property name="pattern" value="%date{yyyy-MM-dd HH:mm:ss} %5level [%thread] %class{30} %line %X{traceId} %msg%n"/>
 
     <appender name="STD_OUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

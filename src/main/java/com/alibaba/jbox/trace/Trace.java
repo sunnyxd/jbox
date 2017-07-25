@@ -1,4 +1,4 @@
-package com.alibaba.jbox.profiler;
+package com.alibaba.jbox.trace;
 
 import java.lang.annotation.*;
 

@@ -103,8 +103,4 @@ public class Performer {
         calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTimeInMillis();
     }
-
-    public static void main(String[] args) {
-        System.out.println();
-    }
 }
