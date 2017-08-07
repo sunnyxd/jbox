@@ -171,6 +171,24 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/Java</directory>
+                <excludes>
+                    <exclude>**/*.log</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <excludes>
+                    <exclude>**/*.log</exclude>
+                    <exclude>**/log4j.xml</exclude>
+                    <exclude>**/log4j2.xml</exclude>
+                    <exclude>**/logback.xml</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

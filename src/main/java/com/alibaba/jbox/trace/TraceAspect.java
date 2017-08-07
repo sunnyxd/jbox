@@ -1,15 +1,21 @@
 package com.alibaba.jbox.trace;
 
 import com.alibaba.jbox.utils.JboxUtils;
+import com.google.common.base.Strings;
 import com.taobao.eagleeye.EagleEye;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author jifang
@@ -18,64 +24,98 @@ import java.util.Arrays;
 @Aspect
 public class TraceAspect {
 
-    private static boolean hasMdc = false;
-
-    static {
-        try {
-            Class.forName("org.slf4j.MDC");
-            hasMdc = true;
-        } catch (Exception e) {
-            System.err.println("slf4j not exits");
-        }
-    }
-
     /**
      * add logback.xml or log4j.xml {@code %X{traceId} }
      * in {@code <pattern></pattern>} config
      */
     private static final String TRACE_ID = "traceId";
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("com.alibaba.jbox.trace");
+    private static final Logger rootLogger = LoggerFactory.getLogger(TraceAspect.class);
 
-    private static final Logger ROOT_LOGGER = LoggerFactory.getLogger(TraceAspect.class);
+    private static final Logger traceLogger = LoggerFactory.getLogger("com.alibaba.jbox.trace");
+
+    // <package.class.method, logger>
+    private static final ConcurrentMap<String, Logger> bizLoggers = new ConcurrentHashMap<>();
 
     @Around("@annotation(com.alibaba.jbox.trace.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {
-        if (hasMdc) {
-            org.slf4j.MDC.put(TRACE_ID, EagleEye.getTraceId());
-        }
-        long start = System.currentTimeMillis();
-        Object result;
+        MDC.put(TRACE_ID, EagleEye.getTraceId());
         try {
-            result = joinPoint.proceed();
+            long start = System.currentTimeMillis();
+            Object result = joinPoint.proceed();
+
+            Method method = JboxUtils.getRealMethod(joinPoint);
+            Trace trace = method.getAnnotation(Trace.class);
+            long costTime = System.currentTimeMillis() - start;
+
+            // log biz
+            if (isNeedLogger(trace)) {
+                logBiz(costTime, method, joinPoint.getTarget(), trace.name());
+            }
+
+            // log overtime
+            if (costTime > trace.threshold()) {
+                logTrace(costTime, method, joinPoint.getArgs());
+            }
+
+            return result;
         } catch (Throwable e) {
-            ROOT_LOGGER.error("", e);
+            rootLogger.error("", e);
             throw e;
         } finally {
-            if (hasMdc) {
-                org.slf4j.MDC.remove(TRACE_ID);
+            MDC.remove(TRACE_ID);
+        }
+    }
+
+    private boolean isNeedLogger(Trace trace) {
+        return trace.value() || trace.logger();
+    }
+
+    private void logBiz(long costTime, Method method, Object target, String loggerName) {
+        Class<?> clazz = method.getDeclaringClass();
+        String methodName = MessageFormat.format("{0}.{1}", clazz.getName(), method.getName());
+        Logger bizLogger = bizLoggers.computeIfAbsent(methodName, key -> {
+            try {
+                if (Strings.isNullOrEmpty(loggerName)) {
+                    return getDefaultBizLogger(clazz, target);
+                } else {
+                    return getNamedBizLogger(loggerName, clazz, target);
+                }
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new TraceException(e);
+            }
+        });
+
+        bizLogger.info("method: [{}] invoke total cost [{}]ms", methodName, costTime);
+    }
+
+    private void logTrace(long costTime, Method method, Object[] args) {
+        traceLogger.warn("method: [{}.{}] invoke total cost {}ms, params: {}",
+                method.getDeclaringClass().getName(),
+                method.getName(),
+                costTime,
+                Arrays.toString(args));
+    }
+
+    private Logger getDefaultBizLogger(Class<?> clazz, Object target) throws IllegalAccessException {
+        Logger bizLogger = null;
+        for (Field field : clazz.getDeclaredFields()) {
+            if (Logger.class.isAssignableFrom(field.getType())) {
+                if (bizLogger == null) {
+                    field.setAccessible(true);
+                    bizLogger = (Logger) field.get(target);
+                } else {
+                    throw new TraceException("duplicated field's type is 'org.slf4j.Logger', please specify the used Logger name in @Trace.name()");
+                }
             }
         }
 
-        Method method = JboxUtils.getRealMethod(joinPoint);
-        Trace trace = method.getAnnotation(Trace.class);
-        long cost = System.currentTimeMillis() - start;
-        if (cost >= trace.value()) { // record
-            onTimeOut(cost, joinPoint.getTarget(), method, joinPoint.getArgs());
-        }
-
-        return result;
+        return bizLogger;
     }
 
-    protected void onTimeOut(long constTime, Object target, Method method, Object[] args) {
-        String clazzName = method.getDeclaringClass().getName();
-        String methodName = method.getName();
-        String message = String.format("method: [%s.%s] invoke total cost [%s]ms, params=%s",
-                clazzName,
-                methodName,
-                constTime,
-                Arrays.toString(args));
-
-        LOGGER.warn(message);
+    private Logger getNamedBizLogger(String loggerName, Class<?> clazz, Object target) throws NoSuchFieldException, IllegalAccessException {
+        Field loggerField = clazz.getDeclaredField(loggerName);
+        loggerField.setAccessible(true);
+        return (Logger) loggerField.get(target);
     }
 }

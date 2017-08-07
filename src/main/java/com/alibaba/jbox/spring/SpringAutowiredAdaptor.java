@@ -9,15 +9,15 @@ import javax.annotation.Resource;
 import java.lang.reflect.Field;
 
 /**
- * 似非Spring托管的Bean可以使用@Autowired、@Resource、@Value注解
- * 同时@Value注解可以享受与普通SpringBean同样的特权, 即: 可以使用基于Diamond的配置, 动态生效
+ * 使非Spring托管的Bean可以使用`@Autowired`、`@Resource`、`@Value`注解
+ * 同时`@Value`注解可以享受与普通SpringBean同样的特权, 即: 可以使用基于Diamond的配置, 动态生效
  *
  * @author jifang.zjf
  * @since 2017/6/7 下午8:28.
  */
-public interface ObjectUseSpringAutowiredAdaptor {
+public abstract class SpringAutowiredAdaptor {
 
-    default void initAutowiredValue() {
+    public void initAutowired() {
         Field[] fields = this.getClass().getDeclaredFields();
         for (Field field : fields) {
             if (field.isAnnotationPresent(Autowired.class)
@@ -27,33 +27,33 @@ public interface ObjectUseSpringAutowiredAdaptor {
                 Value value;
                 Qualifier qualifier;
 
-                Object bean;
-                if (null != (value = field.getAnnotation(Value.class))) {
-                    // 将该对象以Spring外Bean的方式注册到Placeholder管理器中, 以备动态修改@Value属性
+                Object beanValue;
+                if ((value = field.getAnnotation(Value.class)) != null) {
+                    // 将该对象以"Spring外的Bean"的方式注册到Placeholder管理器中
+                    // 以使其具备动态修改@Value属性的能力
                     DiamondPropertySourcesPlaceholder.registerSpringOuterBean(this);
 
                     Object property = DiamondPropertySourcesPlaceholder.getProperty(trimPrefixAndSuffix(value.value()));
                     if (property == null) {
-                        throw new RuntimeException("could not found the config " + value.value() + " value");
+                        throw new RuntimeException("could not found the config " + value.value() + " threshold");
                     }
-                    bean = DiamondPropertySourcesPlaceholder.convertTypeValue((String) property, field.getType());
-                } else if (null != (qualifier = field.getAnnotation(Qualifier.class))) {
-                    bean = DiamondPropertySourcesPlaceholder.getSpringBean(qualifier.value());
+                    beanValue = DiamondPropertySourcesPlaceholder.convertTypeValue((String) property, field.getType(), field.getGenericType());
+                } else if ((qualifier = field.getAnnotation(Qualifier.class)) != null) {
+                    beanValue = DiamondPropertySourcesPlaceholder.getSpringBean(qualifier.value());
                 } else {
-                    bean = DiamondPropertySourcesPlaceholder.getSpringBean(field.getType());
+                    beanValue = DiamondPropertySourcesPlaceholder.getSpringBean(field.getType());
                 }
 
                 ReflectionUtils.makeAccessible(field);
                 try {
-                    field.set(this, bean);
-                } catch (IllegalAccessException e) {
-                    // no case
+                    field.set(this, beanValue);
+                } catch (IllegalAccessException ignored) {
                 }
             }
         }
     }
 
-    default String trimPrefixAndSuffix(String value) {
+    private String trimPrefixAndSuffix(String value) {
         if (value.startsWith("${")) {
             value = value.substring("${".length());
         }

@@ -1,6 +1,9 @@
 package com.alibaba.jbox.trace;
 
-import java.lang.annotation.*;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * @author jifang
@@ -9,5 +12,12 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface Trace {
-    long value() default 200L;
+
+    boolean value() default true;
+
+    boolean logger() default false;
+
+    String name() default "";
+
+    long threshold() default Long.MAX_VALUE;
 }

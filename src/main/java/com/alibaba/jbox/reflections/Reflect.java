@@ -187,15 +187,15 @@ public class Reflect {
     }
 
     /**
-     * Set a field value.
+     * Set a field threshold.
      * <p>
      * This is roughly equivalent to {@link Field#set(Object, Object)}. If the
-     * wrapped object is a {@link Class}, then this will set a value to a static
+     * wrapped object is a {@link Class}, then this will set a threshold to a static
      * member field. If the wrapped object is any other {@link Object}, then
-     * this will set a value to an instance member field.
+     * this will set a threshold to an instance member field.
      *
      * @param name The field name
-     * @param value The new field value
+     * @param value The new field threshold
      * @return The same wrapped object, to be used for further reflection.
      * @throws ReflectException If any reflection exception occurred.
      */
@@ -211,18 +211,18 @@ public class Reflect {
     }
 
     /**
-     * Get a field value.
+     * Get a field threshold.
      * <p>
      * This is roughly equivalent to {@link Field#get(Object)}. If the wrapped
-     * object is a {@link Class}, then this will get a value from a static
+     * object is a {@link Class}, then this will get a threshold from a static
      * member field. If the wrapped object is any other {@link Object}, then
-     * this will get a value from an instance member field.
+     * this will get a threshold from an instance member field.
      * <p>
      * If you want to "navigate" to a wrapped version of the field, use
      * {@link #field(String)} instead.
      *
      * @param name The field name
-     * @return The field value
+     * @return The field threshold
      * @throws ReflectException If any reflection exception occurred.
      * @see #field(String)
      */

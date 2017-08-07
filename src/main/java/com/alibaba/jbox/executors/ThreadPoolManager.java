@@ -15,7 +15,7 @@ import java.util.concurrent.*;
  * <ol>
  * <li>每个分组{@code group}的线程默认是单例的, 防止出现在方法内部{@code new}线程池的错误写法
  * <li>线程以<b>group-n</b>的形式命名, 使在使用jstack/Apache Sorina等工具查看时更加清晰
- * <li>开放{@code fixedMinMaxThreadPool()}方法, 提供比{@code Executors}更灵活, 但比{@code ThreadPoolExecutor}更方便的线程池配置方式
+ * <li>开放{@code newFixedMinMaxThreadPool()}方法, 提供比{@code Executors}更灵活, 但比{@code ThreadPoolExecutor}更方便的线程池配置方式
  * <li>提供{@code LoggedCallerRunsPolicy}的线程拒绝策略, 在RunnableQueue满时打印日志
  * <li>添加{@code ThreadPoolMonitor}监控: 将日志打印到<b>thread-pool-monitor</b> {@code Logger}下
  * <ul>
@@ -35,16 +35,16 @@ import java.util.concurrent.*;
  */
 public class ThreadPoolManager implements LoggerInter {
 
-    static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
+    protected static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
-    public static ExecutorService fixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runQueueSize) {
+    public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize) {
         // 队满拒绝策略
         RejectedExecutionHandler rejectHandler = new LoggedCallerRunsPolicy(group);
 
-        return fixedMinMaxThreadPool(group, minPoolSize, maxPoolSize, runQueueSize, rejectHandler);
+        return newFixedMinMaxThreadPool(group, minPoolSize, maxPoolSize, runnableQueueSize, rejectHandler);
     }
 
-    public static ExecutorService fixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize, RejectedExecutionHandler rejectHandler) {
+    public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize, RejectedExecutionHandler rejectHandler) {
         return executors.computeIfAbsent(group, (key) -> {
             // 任务缓存队列
             BlockingQueue<Runnable> runnableQueue = new ArrayBlockingQueue<>(runnableQueueSize);
@@ -61,7 +61,7 @@ public class ThreadPoolManager implements LoggerInter {
         });
     }
 
-    public static ExecutorService fixedThreadPool(String group, int poolSize) {
+    public static ExecutorService newFixedThreadPool(String group, int poolSize) {
         return executors.computeIfAbsent(group, (key) -> {
 
             ExecutorService executor = Executors.newFixedThreadPool(poolSize, new NamedThreadFactory(group));
@@ -70,7 +70,7 @@ public class ThreadPoolManager implements LoggerInter {
         });
     }
 
-    public static ExecutorService cachedThreadPool(String group) {
+    public static ExecutorService newCachedThreadPool(String group) {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newCachedThreadPool(new NamedThreadFactory(group));
 
@@ -78,7 +78,7 @@ public class ThreadPoolManager implements LoggerInter {
         });
     }
 
-    public static ExecutorService singleThreadExecutor(String group) {
+    public static ExecutorService newSingleThreadExecutor(String group) {
         return executors.computeIfAbsent(group, (key) -> {
 
             ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory(group));
@@ -87,14 +87,31 @@ public class ThreadPoolManager implements LoggerInter {
         });
     }
 
-    private static ExecutorService createExecutorProxy(ExecutorService executor) {
+    public static ScheduledExecutorService newScheduledThreadPool(String group, int corePoolSize) {
+        return (ScheduledExecutorService) executors.computeIfAbsent(group, (key) -> {
+            ScheduledExecutorService executor = Executors.newScheduledThreadPool(corePoolSize, new NamedThreadFactory(group));
+            return createExecutorProxy(executor);
+        });
+    }
+
+    public static ScheduledExecutorService newSingleThreadScheduledExecutor(String group) {
+        return (ScheduledExecutorService) executors.computeIfAbsent(group, (key) -> {
+
+            ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(group));
+
+            return createExecutorProxy(executor);
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends ExecutorService> T createExecutorProxy(T executor) {
         Object proxy = new CglibProxyFactory().createInterceptorProxy(
                 executor,
                 new RunnableDecoratorInterceptor(),
-                new Class[]{ExecutorService.class}
+                new Class[]{executor.getClass()}
         );
 
-        return (ExecutorService) proxy;
+        return (T) proxy;
     }
 
     @PreDestroy

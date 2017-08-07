@@ -1,5 +1,6 @@
 package com.alibaba.jbox.spring;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
@@ -7,7 +8,6 @@ import com.google.common.collect.Multimap;
 import com.taobao.diamond.client.Diamond;
 import com.taobao.diamond.manager.ManagerListener;
 import com.taobao.diamond.manager.ManagerListenerAdapter;
-import org.apache.commons.lang3.CharEncoding;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -46,11 +47,9 @@ public class DiamondPropertySourcesPlaceholder
         extends PropertySourcesPlaceholderConfigurer
         implements InitializingBean, DisposableBean {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DiamondPropertySourcesPlaceholder.class);
+    private static final Logger logger = LoggerFactory.getLogger(DiamondPropertySourcesPlaceholder.class);
 
-    private static final Properties ALL_PROPERTIES = new Properties();
-
-    private static final ConcurrentMap<Class, Class> PRIMITIVE_TYPE_MAP = new ConcurrentHashMap<Class, Class>(14) {
+    private static final ConcurrentMap<Class, Class> primitiveTypes = new ConcurrentHashMap<Class, Class>(14) {
         private static final long serialVersionUID = -4085587013134835589L;
 
         {
@@ -71,7 +70,9 @@ public class DiamondPropertySourcesPlaceholder
         }
     };
 
-    private static Set<Object> BEAN_NOT_IN_SPRING_CONTAINER = new HashSet<>();
+    private static Properties wholeProperties = new Properties();
+
+    private static Set<Object> beanNotInSpring = new HashSet<>();
 
     private static ConfigurableListableBeanFactory beanFactory;
 
@@ -112,11 +113,11 @@ public class DiamondPropertySourcesPlaceholder
     /*  ----------- Public APIs -------------   */
     /*  -------------------------------------   */
     public static Properties getProperties() {
-        return ALL_PROPERTIES;
+        return wholeProperties;
     }
 
     public static Object getProperty(Object key) {
-        return ALL_PROPERTIES.get(key);
+        return wholeProperties.get(key);
     }
 
     public static Object getSpringBean(String id) {
@@ -132,7 +133,7 @@ public class DiamondPropertySourcesPlaceholder
     }
 
     public static void registerSpringOuterBean(Object bean) {
-        BEAN_NOT_IN_SPRING_CONTAINER.add(bean);
+        beanNotInSpring.add(bean);
     }
 
     // 过滤 & 暂存 yaml 资源
@@ -231,7 +232,7 @@ public class DiamondPropertySourcesPlaceholder
         for (Resource yamlResource : this.yamlResources) {
             /**
              * attention!!! : not support raw array yaml config
-              */
+             */
             Map<?, ?> yamlMap = (Map<?, ?>) new Yaml().load(yamlResource.getInputStream());
 
             yamlMap.forEach(properties::put);
@@ -242,7 +243,7 @@ public class DiamondPropertySourcesPlaceholder
 
     private void saveProperties(Map<?, ?> map) {
         if (!isNullOrEmpty(map)) {
-            map.forEach(ALL_PROPERTIES::put);
+            map.forEach(wholeProperties::put);
         }
     }
 
@@ -269,15 +270,15 @@ public class DiamondPropertySourcesPlaceholder
             String currentValue = convertEntryValue(entry.getValue());
 
             // make sure is changed
-            if (!currentValue.equals(ALL_PROPERTIES.get(key))) {
-                ALL_PROPERTIES.put(key, currentValue);
+            if (!currentValue.equals(wholeProperties.get(key))) {
+                wholeProperties.put(key, currentValue);
 
                 Collection<Pair<Field, Object>> filedWithBeans = this.beanAnnotatedByValue.get(key);
                 if (!isNullOrEmpty(filedWithBeans)) {
                     for (Pair<Field, Object> pair : filedWithBeans) {
                         Field field = pair.getLeft();
                         Object beanInstance = pair.getRight();
-                        Object filedValue = convertTypeValue(currentValue, field.getType());
+                        Object filedValue = convertTypeValue(currentValue, field.getType(), field.getGenericType());
 
                         try {
                             field.set(beanInstance, filedValue);
@@ -285,11 +286,11 @@ public class DiamondPropertySourcesPlaceholder
                             // 不可能发生
                         }
 
-                        LOGGER.warn("class: {}`s instance field: {} value is change to {}", beanInstance.getClass().getName(),
+                        logger.warn("class: {}`s instance field: {} threshold is change to {}", beanInstance.getClass().getName(),
                                 field.getName(), filedValue);
                     }
                 } else {
-                    LOGGER.error("propertyKey: {} have not found relation bean, value: {}", key, currentValue);
+                    logger.error("propertyKey: {} have not found relation bean, threshold: {}", key, currentValue);
                 }
             }
         }
@@ -305,7 +306,7 @@ public class DiamondPropertySourcesPlaceholder
             }
 
             // 将Spring外的Bean也放入beanAnnotatedByValue管理
-            BEAN_NOT_IN_SPRING_CONTAINER.forEach((bean) -> initBeanMap(getAOPTarget(bean)));
+            beanNotInSpring.forEach((bean) -> initBeanMap(getAOPTarget(bean)));
         }
     }
 
@@ -328,23 +329,23 @@ public class DiamondPropertySourcesPlaceholder
         if (value.startsWith("${") && value.endsWith("}")) {
             return value.substring("${".length(), value.length() - 1);
         } else {
-            throw new RuntimeException("@Value annotation need \"${[config key]}\" config in the value() property");
+            throw new RuntimeException("@Value annotation need \"${[config key]}\" config in the threshold() property");
         }
     }
 
     // 仅支持八种基本类型和String
-    public static Object convertTypeValue(String value, Class type) {
+    public static <T> Object convertTypeValue(String value, Class<T> type, Type genericType) {
         Object instance = null;
-        Class<?> primitiveType = PRIMITIVE_TYPE_MAP.get(type);
+        Class<?> primitiveType = primitiveTypes.get(type);
         if (primitiveType != null) {
             try {
                 instance = primitiveType.getMethod("valueOf", String.class).invoke(null, value);
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
             }
-        } else if (type == CharEncoding.class || type == char.class) {
+        } else if (type == Character.class || type == char.class) {
             instance = value.charAt(0);
         } else {
-            instance = value;
+            instance = JSON.parseObject(value, genericType);
         }
 
         return instance;
