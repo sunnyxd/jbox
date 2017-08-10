@@ -48,6 +48,7 @@
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
             <version>${fastjson.version}</version>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -132,17 +133,17 @@
             <optional>true</optional>
         </dependency>
 
-        <dependency>
-            <groupId>org.yaml</groupId>
-            <artifactId>snakeyaml</artifactId>
-            <version>${yaml.version}</version>
-            <optional>true</optional>
-        </dependency>
-
+        <!-- spring -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context</artifactId>
             <version>${spring.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${yaml.version}</version>
             <optional>true</optional>
         </dependency>
 
@@ -172,12 +173,6 @@
 
     <build>
         <resources>
-            <resource>
-                <directory>src/main/Java</directory>
-                <excludes>
-                    <exclude>**/*.log</exclude>
-                </excludes>
-            </resource>
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>

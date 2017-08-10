@@ -11,8 +11,8 @@ import java.util.Enumeration;
 import java.util.function.Supplier;
 
 /**
- * @author jifang.zjf
- * @since 2017/7/22 обнГ2:31.
+ * @author jifang.zjf@alibaba-inc.com
+ * @since 2017/7/22 14:31.
  */
 public class ServerIpHolder {
 

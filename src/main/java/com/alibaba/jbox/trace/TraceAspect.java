@@ -30,7 +30,7 @@ public class TraceAspect {
      */
     private static final String TRACE_ID = "traceId";
 
-    private static final Logger rootLogger = LoggerFactory.getLogger(TraceAspect.class);
+    private static final Logger rootLogger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
 
     private static final Logger traceLogger = LoggerFactory.getLogger("com.alibaba.jbox.trace");
 
@@ -42,20 +42,19 @@ public class TraceAspect {
         MDC.put(TRACE_ID, EagleEye.getTraceId());
         try {
             long start = System.currentTimeMillis();
+
             Object result = joinPoint.proceed();
 
             Method method = JboxUtils.getRealMethod(joinPoint);
             Trace trace = method.getAnnotation(Trace.class);
             long costTime = System.currentTimeMillis() - start;
 
-            // log biz
-            if (isNeedLogger(trace)) {
-                logBiz(costTime, method, joinPoint.getTarget(), trace.name());
-            }
+            // log over time
+            if (isNeedLogger(trace, costTime)) {
+                String logContent = buildLogContent(method, costTime, trace, joinPoint.getArgs());
 
-            // log overtime
-            if (costTime > trace.threshold()) {
-                logTrace(costTime, method, joinPoint.getArgs());
+                logBiz(logContent, method, joinPoint, trace);
+                logTrace(logContent);
             }
 
             return result;
@@ -67,34 +66,52 @@ public class TraceAspect {
         }
     }
 
-    private boolean isNeedLogger(Trace trace) {
-        return trace.value() || trace.logger();
+    private boolean isNeedLogger(Trace trace, long costTime) {
+        return trace.value() && costTime > trace.threshold();
     }
 
-    private void logBiz(long costTime, Method method, Object target, String loggerName) {
+    private String buildLogContent(Method method, long costTime, Trace trace, Object[] args) {
+        StringBuilder logBuilder = new StringBuilder(120);
+        logBuilder
+                .append("method: [")
+                .append(method.getDeclaringClass().getName())
+                .append('.')
+                .append(method.getName())
+                .append("] invoke total cost [")
+                .append(costTime)
+                .append("]ms");
+
+        if (trace.param()) {
+            logBuilder.append(", params:[")
+                    .append(Arrays.toString(args))
+                    .append("].");
+        } else {
+            logBuilder.append('.');
+        }
+
+        return logBuilder.toString();
+    }
+
+    private void logBiz(String logContent, Method method, Object target, Trace trace) {
         Class<?> clazz = method.getDeclaringClass();
         String methodName = MessageFormat.format("{0}.{1}", clazz.getName(), method.getName());
         Logger bizLogger = bizLoggers.computeIfAbsent(methodName, key -> {
             try {
-                if (Strings.isNullOrEmpty(loggerName)) {
+                if (Strings.isNullOrEmpty(trace.logger())) {
                     return getDefaultBizLogger(clazz, target);
                 } else {
-                    return getNamedBizLogger(loggerName, clazz, target);
+                    return getNamedBizLogger(trace.logger(), clazz, target);
                 }
             } catch (NoSuchFieldException | IllegalAccessException e) {
                 throw new TraceException(e);
             }
         });
 
-        bizLogger.info("method: [{}] invoke total cost [{}]ms", methodName, costTime);
+        bizLogger.warn(logContent);
     }
 
-    private void logTrace(long costTime, Method method, Object[] args) {
-        traceLogger.warn("method: [{}.{}] invoke total cost {}ms, params: {}",
-                method.getDeclaringClass().getName(),
-                method.getName(),
-                costTime,
-                Arrays.toString(args));
+    private void logTrace(String logContent) {
+        traceLogger.warn(logContent);
     }
 
     private Logger getDefaultBizLogger(Class<?> clazz, Object target) throws IllegalAccessException {
