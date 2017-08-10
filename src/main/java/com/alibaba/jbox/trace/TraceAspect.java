@@ -82,9 +82,9 @@ public class TraceAspect {
                 .append("]ms");
 
         if (trace.param()) {
-            logBuilder.append(", params:[")
+            logBuilder.append(", params:")
                     .append(Arrays.toString(args))
-                    .append("].");
+                    .append(".");
         } else {
             logBuilder.append('.');
         }
