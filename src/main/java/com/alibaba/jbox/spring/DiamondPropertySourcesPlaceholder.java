@@ -353,7 +353,7 @@ public class DiamondPropertySourcesPlaceholder
         } else if (type == Character.class || type == char.class) {
             instance = value.charAt(0);
         } else if (type == String.class) {
-            return value;
+            instance = value;
         } else {
             instance = JSON.parseObject(value, genericType);
         }
