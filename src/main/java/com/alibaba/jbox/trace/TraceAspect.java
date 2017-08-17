@@ -47,14 +47,16 @@ public class TraceAspect {
 
             Method method = JboxUtils.getRealMethod(joinPoint);
             Trace trace = method.getAnnotation(Trace.class);
-            long costTime = System.currentTimeMillis() - start;
+            if (trace != null) {
+                long costTime = System.currentTimeMillis() - start;
 
-            // log over time
-            if (isNeedLogger(trace, costTime)) {
-                String logContent = buildLogContent(method, costTime, trace, joinPoint.getArgs());
+                // log over time
+                if (isNeedLogger(trace, costTime)) {
+                    String logContent = buildLogContent(method, costTime, trace, joinPoint.getArgs());
 
-                logBiz(logContent, method, joinPoint, trace);
-                logTrace(logContent);
+                    logBiz(logContent, method, joinPoint, trace);
+                    logTrace(logContent);
+                }
             }
 
             return result;
