@@ -1,33 +1,33 @@
-package com.alibaba.jbox.executors;
+package com.alibaba.jbox.executor;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * @author jifang
- * @since 2017/1/18 下午4:12.
+ * @since 2017/1/16 下午2:18.
  */
-public class LoggedDiscardPolicy extends ThreadPoolExecutor.DiscardPolicy implements LoggerInter {
+public class LoggedCallerRunsPolicy extends ThreadPoolExecutor.CallerRunsPolicy implements LoggerInter {
 
     private String group;
 
-    public LoggedDiscardPolicy(String group) {
+    public LoggedCallerRunsPolicy(String group) {
         this.group = group;
     }
 
     @Override
     public void rejectedExecution(Runnable runnable, ThreadPoolExecutor executor) {
+
         if (runnable instanceof AsyncRunnable) {
             String taskInfo = ((AsyncRunnable) runnable).taskInfo();
 
-            String msg = String.format("policy: [Discard], task:[%s] execute reject, group:[%s] runnable queue remaining:[%s]",
+            String msg = String.format("policy: [CallerRuns], task:[%s] execute reject, group:[%s] runnable queue remaining:[%s]",
                     taskInfo,
                     this.group,
                     executor.getQueue().remainingCapacity());
 
-            LOGGER.warn(msg);
-            MONITOR_LOGGER.warn(msg);
+            logger.warn(msg);
+            monitorLogger.warn(msg);
         }
-
 
         super.rejectedExecution(runnable, executor);
     }

@@ -14,8 +14,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * @author jifang.zjf
- * @since 2017/7/15 上午7:03.
+ * @author jifang.zjf@alibaba-inc.com
+ * @version 1.0
+ * @since 2017/7/15 07:03:00.
  */
 public class BeanInstantiationLogger implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
 

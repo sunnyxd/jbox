@@ -18,6 +18,7 @@ import static com.alibaba.jbox.spring.DiamondPropertySourcesPlaceholder.convertT
 
 /**
  * @author jifang.zjf@albiaba-inc.com
+ * @version 1.0
  * @since 2017/8/2 17:15:00.
  */
 @SuppressWarnings("all")
@@ -67,7 +68,7 @@ public class BeanCopyUtil {
                 Field srcField = srcFieldMap.get(dstFieldName);
 
                 Object srcFieldValue;
-                // dstÀàÄÚ°üº¬ÏàÓ¦ÊôĞÔ ÇÒ ÊôĞÔÖµ²»Îªnull
+                // dstç±»å†…åŒ…å«ç›¸åº”å±æ€§ ä¸” å±æ€§å€¼ä¸ä¸ºnull
                 if (srcField != null && (srcFieldValue = FieldUtils.readField(srcField, srcObject, true)) != null) {
                     Object dstFieldValue = makeDstFieldValue(dstObject, srcObject, dstFieldEntry.getValue(), srcField, srcFieldValue);
                     FieldUtils.writeField(dstFieldEntry.getValue(), dstObject, dstFieldValue, true);
@@ -86,20 +87,20 @@ public class BeanCopyUtil {
         Class<?> srcFieldType = srcField.getType();
         Type srcFieldGenericType = srcField.getGenericType();
 
-        // Èç¹ûsrcFieldTypeÖ±½ÓÊÇdstFieldTypeµÄ×ÓÀà, Ôò¿É°²È«µÄÖ±½Ó¸³Öµ
+        // å¦‚æœsrcFieldTypeç›´æ¥æ˜¯dstFieldTypeçš„å­ç±», åˆ™å¯å®‰å…¨çš„ç›´æ¥èµ‹å€¼
         if (isInheritType(dstFieldType, dstFieldGenericType, srcFieldType, srcFieldGenericType)) {
             // make sure use clone
             return srcFieldValue;
         }
-        // ¾ùÊÇ»ù±¾ÀàĞÍ(or°ü×°ÀàĞÍ), ÇÒÀàĞÍ²»Ò»ÖÂ
+        // å‡æ˜¯åŸºæœ¬ç±»å‹(oråŒ…è£…ç±»å‹), ä¸”ç±»å‹ä¸ä¸€è‡´
         else if (primitiveSuppliers.containsKey(dstFieldType) && primitiveSuppliers.containsKey(srcFieldType)) {
             return convertTypeValue(String.valueOf(srcFieldValue), dstFieldType, dstFieldGenericType);
         }
-        // ¾ùÊÇCollectionÀàĞÍ
+        // å‡æ˜¯Collectionç±»å‹
         else if (Collection.class.isAssignableFrom(dstFieldType) && srcFieldValue instanceof Collection) {
             return copyCollectionValues(dstFieldGenericType, (Collection) srcFieldValue);
         }
-        // ¾ùÊÇMapÀàĞÍ
+        // å‡æ˜¯Mapç±»å‹
         else if (Map.class.isAssignableFrom(dstFieldType) && srcFieldValue instanceof Map) {
             return copyMapValues(dstFieldGenericType, (Map) srcFieldValue);
         } else {
@@ -108,7 +109,7 @@ public class BeanCopyUtil {
     }
 
     /**
-     * µİ¹écopy
+     * é€’å½’copy
      *
      * @param srcValue
      * @param dstFieldType
@@ -119,7 +120,7 @@ public class BeanCopyUtil {
     }
 
     /**
-     * collectionÀàĞÍcopy
+     * collectionç±»å‹copy
      *
      * @param dstFieldGenericType
      * @param srcCollection
@@ -148,7 +149,7 @@ public class BeanCopyUtil {
     }
 
     /**
-     * Map ÀàĞÍcopy
+     * Map ç±»å‹copy
      *
      * @param dstFieldGenericType
      * @param srcMap

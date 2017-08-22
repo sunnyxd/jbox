@@ -1,4 +1,4 @@
-package com.alibaba.jbox.executors;
+package com.alibaba.jbox.executor;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;

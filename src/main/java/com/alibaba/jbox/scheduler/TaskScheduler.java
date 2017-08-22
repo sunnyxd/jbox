@@ -1,11 +1,15 @@
 package com.alibaba.jbox.scheduler;
 
-import com.alibaba.jbox.annotation.NotNull;
+import lombok.NonNull;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -14,7 +18,9 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class TaskScheduler {
 
-    // 调度基本时间片(粒度不能小于100MS)
+    /**
+     * 基本调度时间片(粒度不能小于100MS)
+     */
     private static final int BASE_TIME_FRAGMENT = 100;
 
     private static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -37,7 +43,7 @@ public class TaskScheduler {
         this.invokeOnStart = invokeOnStart;
     }
 
-    public void register(@NotNull ScheduleTask task) {
+    public void register(@NonNull ScheduleTask task) {
         taskMap.put(task, Pair.of(new AtomicLong(0L), task.period() / BASE_TIME_FRAGMENT));
         ScheduleTask.SCHEDULE_TASK_LOGGER.info("task [{}] registered, period [{}]", task.taskName(), task.period());
     }

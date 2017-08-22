@@ -6,6 +6,7 @@ import com.taobao.diamond.client.Diamond;
 import com.taobao.diamond.manager.ManagerListenerAdapter;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author jifang.zjf
@@ -13,7 +14,7 @@ import java.util.Map;
  */
 public abstract class AbstractLoggerConfigurator {
 
-    private static boolean isInited = false;
+    private static final AtomicBoolean init = new AtomicBoolean(false);
 
     public AbstractLoggerConfigurator() {
         this("config", "properties");
@@ -24,12 +25,10 @@ public abstract class AbstractLoggerConfigurator {
 
             @Override
             public void receiveConfigInfo(String configInfo) {
-                if (isInited) {
+                if (!init.compareAndSet(false, true)) {
                     Map<String, String> loggerConfigs = JSON.parseObject(configInfo, new TypeReference<Map<String, String>>() {
                     });
                     handleLoggerConfigs(loggerConfigs);
-                } else {
-                    isInited = true;
                 }
             }
         });

@@ -1,5 +1,6 @@
 package com.alibaba.jbox.utils;
 
+import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -10,11 +11,11 @@ import java.util.Date;
  */
 public class DateUtils {
 
-    public static final long MS_PER_DAY = 86400 * 1000;
+    public static final long MS_PER_DAY = 24 * 60 * 60 * 1000;
 
     private static final String pattern = "yyyy-MM-dd HH:mm:ss";
-    
-    private static final ThreadLocal<SimpleDateFormat> formatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(pattern));
+
+    private static final ThreadLocal<DateFormat> formatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(pattern));
 
     public static String format(Object obj) {
         return formatterMap.get().format(obj);

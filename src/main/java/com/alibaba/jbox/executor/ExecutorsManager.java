@@ -1,44 +1,35 @@
-package com.alibaba.jbox.executors;
+package com.alibaba.jbox.executor;
 
 import com.alibaba.jbox.scheduler.ScheduleTask;
-import org.apache.commons.proxy.factory.cglib.CglibProxyFactory;
+import org.apache.commons.proxy.ProxyFactory;
 
 import javax.annotation.PreDestroy;
 import java.util.concurrent.*;
 
 /**
- * 线程池管理器:
- * <p/>
- * <b>最好注册为一个Spring Bean</b>
- * <p/>
- * 相比JDK原生{@code Executors}有以下优势:
- * <ol>
- * <li>每个分组{@code group}的线程默认是单例的, 防止出现在方法内部{@code new}线程池的错误写法
- * <li>线程以<b>group-n</b>的形式命名, 使在使用jstack/Apache Sorina等工具查看时更加清晰
- * <li>开放{@code newFixedMinMaxThreadPool()}方法, 提供比{@code Executors}更灵活, 但比{@code ThreadPoolExecutor}更方便的线程池配置方式
- * <li>提供{@code LoggedCallerRunsPolicy}的线程拒绝策略, 在RunnableQueue满时打印日志
- * <li>添加{@code ThreadPoolMonitor}监控: 将日志打印到<b>thread-pool-monitor</b> {@code Logger}下
- * <ul>
- * <li>a. 线程组信息
- * <li>b. 线程总数
- * <li>c. 活跃线程数
- * <li>d. 被阻塞的任务描述(在RunnableQueue内的任务的描述)
- * </ul>
- * <li>封装{@code Runnable}为{@code AsyncRunnable}, 为提交的任务增加描述信息
- * (即使提交的任务为原生的{@code Runnable}, 被代理的{@code ExecutorService}也会将其修改为{@code AsyncRunnable}:
- * 使用class name作为task info, 详见{@code AsyncRunnable}类实现)
- * <li>如果将{@code ThreadPoolManager}注册为Spring bean, 会在应用关闭时自动将忘记关闭的线程池自动关闭掉.
- * </ol>
+ * 线程池管理器(最优雅的方式是注册为一个Spring Bean):
+ * 1. 优点
+ * - 1) 每个分组{@code group}中的线程默认都是单例的, 防止出现在方法内部循环创建线程池的错误写法;
+ * - 2) 线程以{@code group-n}形式命名, 使在查看线程栈时更加清晰;
+ * - 3) 开放{@code newFixedMinMaxThreadPool()}方法, 提供比{@code Executors}更灵活, 比{@code ThreadPoolExecutor}更便捷的配置方式;
+ * - 4) 提供{@code LoggedCallerRunsPolicy}的线程拒绝策略, 在{@code RunnableQueue}满时打印日志;
+ * - 5) 添加{@code ExecutorsMonitor}监控: 将线程池监控日志打印到{@code 'executor-monitor'}这个{@code Logger}下, 打印内容包含:
+ * -- 5.a) 线程组信息
+ * -- 5.b) 线程总数
+ * -- 5.c) 活跃线程数
+ * -- 5.d). 被阻塞的任务描述(在RunnableQueue内的任务的描述)
+ * 2. 封装{@code Runnable}为{@code AsyncRunnable}, 为提交的任务增加描述信息:
+ * 3. 如果将{@code ExecutorsManager}注册为SpringBean, 会在应用关闭时自动将线程池关闭掉, 防止线程池未关导致应用下线不成功的bug.
  *
- * @author jifang
- * @since 2017/1/16 下午2:15.
+ * @author jifang.zjf@alibaba-inc.com
+ * @version 1.2
+ * @since 2017/1/16 14:15:00.
  */
-public class ThreadPoolManager implements LoggerInter {
+public class ExecutorsManager implements LoggerInter {
 
-    protected static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
+    static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
     public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize) {
-        // 队满拒绝策略
         RejectedExecutionHandler rejectHandler = new LoggedCallerRunsPolicy(group);
 
         return newFixedMinMaxThreadPool(group, minPoolSize, maxPoolSize, runnableQueueSize, rejectHandler);
@@ -46,7 +37,6 @@ public class ThreadPoolManager implements LoggerInter {
 
     public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize, RejectedExecutionHandler rejectHandler) {
         return executors.computeIfAbsent(group, (key) -> {
-            // 任务缓存队列
             BlockingQueue<Runnable> runnableQueue = new ArrayBlockingQueue<>(runnableQueueSize);
 
             ThreadFactory threadFactory = new NamedThreadFactory(group);
@@ -57,7 +47,7 @@ public class ThreadPoolManager implements LoggerInter {
                     threadFactory,
                     rejectHandler);
 
-            return createExecutorProxy(threadPoolExecutor);
+            return (ExecutorService) createExecutorProxy(threadPoolExecutor, ExecutorService.class);
         });
     }
 
@@ -66,7 +56,7 @@ public class ThreadPoolManager implements LoggerInter {
 
             ExecutorService executor = Executors.newFixedThreadPool(poolSize, new NamedThreadFactory(group));
 
-            return createExecutorProxy(executor);
+            return (ExecutorService) createExecutorProxy(executor, ExecutorService.class);
         });
     }
 
@@ -74,7 +64,7 @@ public class ThreadPoolManager implements LoggerInter {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newCachedThreadPool(new NamedThreadFactory(group));
 
-            return createExecutorProxy(executor);
+            return (ExecutorService) createExecutorProxy(executor, ExecutorService.class);
         });
     }
 
@@ -83,14 +73,16 @@ public class ThreadPoolManager implements LoggerInter {
 
             ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory(group));
 
-            return createExecutorProxy(executor);
+            return (ExecutorService) createExecutorProxy(executor, ExecutorService.class);
         });
     }
 
     public static ScheduledExecutorService newScheduledThreadPool(String group, int corePoolSize) {
         return (ScheduledExecutorService) executors.computeIfAbsent(group, (key) -> {
+
             ScheduledExecutorService executor = Executors.newScheduledThreadPool(corePoolSize, new NamedThreadFactory(group));
-            return createExecutorProxy(executor);
+
+            return (ScheduledExecutorService) createExecutorProxy(executor, ScheduledExecutorService.class);
         });
     }
 
@@ -99,19 +91,17 @@ public class ThreadPoolManager implements LoggerInter {
 
             ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(group));
 
-            return createExecutorProxy(executor);
+            return (ScheduledExecutorService) createExecutorProxy(executor, ScheduledExecutorService.class);
         });
     }
 
-    @SuppressWarnings("unchecked")
-    private static <T extends ExecutorService> T createExecutorProxy(T executor) {
-        Object proxy = new CglibProxyFactory().createInterceptorProxy(
+    private static Object createExecutorProxy(Object executor, Class<?> type) {
+
+        return new ProxyFactory().createInterceptorProxy(
                 executor,
                 new RunnableDecoratorInterceptor(),
-                new Class[]{executor.getClass()}
+                new Class[]{type}
         );
-
-        return (T) proxy;
     }
 
     @PreDestroy
@@ -120,8 +110,8 @@ public class ThreadPoolManager implements LoggerInter {
                 .filter(entry -> !entry.getValue().isShutdown())
                 .forEach(entry -> {
                     entry.getValue().shutdown();
-                    MONITOR_LOGGER.info("executor [{}] is shutdown", entry.getKey());
-                    LOGGER.info("executor [{}] is shutdown", entry.getKey());
+                    monitorLogger.info("executor [{}] is shutdown", entry.getKey());
+                    logger.info("executor [{}] is shutdown", entry.getKey());
                 });
     }
 }

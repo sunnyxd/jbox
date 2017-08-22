@@ -1,4 +1,4 @@
-package com.alibaba.jbox.executors;
+package com.alibaba.jbox.executor;
 
 /**
  * @author jifang.zjf

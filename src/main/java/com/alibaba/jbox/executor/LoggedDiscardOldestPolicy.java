@@ -1,4 +1,4 @@
-package com.alibaba.jbox.executors;
+package com.alibaba.jbox.executor;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -26,8 +26,8 @@ public class LoggedDiscardOldestPolicy extends ThreadPoolExecutor.DiscardOldestP
                         this.group,
                         executor.getQueue().remainingCapacity());
 
-                LOGGER.warn(msg);
-                MONITOR_LOGGER.warn(msg);
+                logger.warn(msg);
+                monitorLogger.warn(msg);
             }
 
             executor.execute(runnable);

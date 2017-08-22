@@ -1,10 +1,11 @@
-package com.alibaba.jbox.executors;
+package com.alibaba.jbox.executor;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.proxy.Interceptor;
 import org.apache.commons.proxy.Invocation;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author jifang
@@ -48,10 +49,17 @@ class RunnableDecoratorInterceptor implements Interceptor {
         String methodName = method.getName();
         Class<?>[] pTypes = method.getParameterTypes();
 
-        return (StringUtils.equals(methodName, "execute") || StringUtils.equals(methodName, "submit"))
+        return needProxyMethods.contains(methodName)
                 && pTypes.length != 0
                 && Runnable.class.isAssignableFrom(pTypes[0])
                 && arguments[0] instanceof Runnable
                 && !(arguments[0] instanceof AsyncRunnable);
     }
+
+    private static final List<String> needProxyMethods = Arrays.asList(
+            "scheduleAtFixedRate",
+            "execute",
+            "submit",
+            "schedule"
+    );
 }

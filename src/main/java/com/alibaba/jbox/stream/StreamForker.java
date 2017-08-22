@@ -1,7 +1,15 @@
 package com.alibaba.jbox.stream;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Spliterator;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -9,7 +17,9 @@ import java.util.stream.StreamSupport;
 
 /**
  * TODO Test
- * @author jifang.zjf
+ *
+ * @author jifang.zjf@alibaba-inc.com
+ * @version 1.0
  * @since 2017/6/26 下午5:28.
  */
 public class StreamForker<T> {

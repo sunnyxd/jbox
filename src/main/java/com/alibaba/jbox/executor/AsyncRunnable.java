@@ -1,4 +1,4 @@
-package com.alibaba.jbox.executors;
+package com.alibaba.jbox.executor;
 
 /**
  * 对Runnable的包装, 在Runnable进入task queue或task被reject时可以打印更详细的信息

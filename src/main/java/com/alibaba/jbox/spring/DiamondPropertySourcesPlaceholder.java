@@ -2,6 +2,7 @@ package com.alibaba.jbox.spring;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.jbox.utils.AopTargetUtils;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -11,9 +12,6 @@ import com.taobao.diamond.manager.ManagerListenerAdapter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.aop.framework.AdvisedSupport;
-import org.springframework.aop.framework.AopProxy;
-import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -23,12 +21,12 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.env.ConfigurablePropertyResolver;
 import org.springframework.core.io.Resource;
+import org.springframework.util.ReflectionUtils;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -306,15 +304,22 @@ public class DiamondPropertySourcesPlaceholder
 
     private void initBeansMap(ConfigurableListableBeanFactory beanFactory) {
         if (beanAnnotatedByValue.isEmpty()) {
-            // 将被Spring托管的Bean放入beanAnnotatedByValue管理
-            String[] beanNames = beanFactory.getBeanDefinitionNames();
-            for (String beanName : beanNames) {
-                Object bean = beanFactory.getBean(beanName);
-                initBeanMap(getAOPTarget(bean));
-            }
+            try {
+                // 将被Spring托管的Bean放入beanAnnotatedByValue管理
+                String[] beanNames = beanFactory.getBeanDefinitionNames();
+                for (String beanName : beanNames) {
+                    Object bean = beanFactory.getBean(beanName);
+                    initBeanMap(AopTargetUtils.getTarget(bean));
+                }
 
-            // 将Spring外的Bean也放入beanAnnotatedByValue管理
-            beanNotInSpring.forEach((bean) -> initBeanMap(getAOPTarget(bean)));
+                // 将Spring外的Bean也放入beanAnnotatedByValue管理
+                for (Object bean : beanNotInSpring) {
+                    initBeanMap(AopTargetUtils.getTarget(bean));
+                }
+            } catch (Exception e) {
+                // TODO
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -331,7 +336,7 @@ public class DiamondPropertySourcesPlaceholder
     }
 
     private String getValueAnnotationValue(Field field) {
-        makeAccessible(field);
+        ReflectionUtils.makeAccessible(field);
 
         String value = field.getAnnotation(Value.class).value();
         if (value.startsWith("${") && value.endsWith("}")) {
@@ -341,7 +346,6 @@ public class DiamondPropertySourcesPlaceholder
         }
     }
 
-    // 仅支持八种基本类型和String
     public static <T> Object convertTypeValue(String value, Class<T> type, Type genericType) {
         Object instance = null;
         Class<?> primitiveType = primitiveTypes.get(type);
@@ -361,67 +365,12 @@ public class DiamondPropertySourcesPlaceholder
         return instance;
     }
 
-    /**
-     * From spring-core
-     * Make the given field accessible, explicitly setting it accessible if
-     * necessary. The {@code setAccessible(true)} method is only called
-     * when actually necessary, to avoid unnecessary conflicts with a JVM
-     * SecurityManager (if active).
-     *
-     * @param field the field to make accessible
-     * @see Field#setAccessible
-     */
-    private void makeAccessible(Field field) {
-        if ((!Modifier.isPublic(field.getModifiers()) || !Modifier.isPublic(field.getDeclaringClass().getModifiers()) ||
-                Modifier.isFinal(field.getModifiers())) && !field.isAccessible()) {
-            field.setAccessible(true);
-        }
-    }
-
     private boolean isNullOrEmpty(Collection collection) {
         return collection == null || collection.isEmpty();
     }
 
     private boolean isNullOrEmpty(Map map) {
         return map == null || map.isEmpty();
-    }
-
-    private Object getAOPTarget(Object bean) {
-        if (AopUtils.isAopProxy(bean)) {
-            try {
-                if (AopUtils.isJdkDynamicProxy(bean)) {
-                    bean = getJDKProxyTarget(bean);
-                } else {
-                    bean = getCglibProxyTarget(bean);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return bean;
-    }
-
-    private Object getJDKProxyTarget(Object proxy) throws Exception {
-        Field h = proxy.getClass().getSuperclass().getDeclaredField("h");
-        h.setAccessible(true);
-        AopProxy aopProxy = (AopProxy) h.get(proxy);
-
-        Field advised = aopProxy.getClass().getDeclaredField("advised");
-        advised.setAccessible(true);
-
-        return ((AdvisedSupport) advised.get(aopProxy)).getTargetSource().getTarget();
-    }
-
-    private Object getCglibProxyTarget(Object proxy) throws Exception {
-        Field h = proxy.getClass().getDeclaredField("CGLIB$CALLBACK_0");
-        makeAccessible(h);
-        Object dynamicAdvisedInterceptor = h.get(proxy);
-
-        Field advised = dynamicAdvisedInterceptor.getClass().getDeclaredField("advised");
-        advised.setAccessible(true);
-
-        return ((AdvisedSupport) advised.get(dynamicAdvisedInterceptor)).getTargetSource().getTarget();
     }
 
     @Override

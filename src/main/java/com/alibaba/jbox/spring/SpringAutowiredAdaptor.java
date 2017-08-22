@@ -12,7 +12,8 @@ import java.lang.reflect.Field;
  * 使非Spring托管的Bean可以使用`@Autowired`、`@Resource`、`@Value`注解
  * 同时`@Value`注解可以享受与普通SpringBean同样的特权, 即: 可以使用基于Diamond的配置, 动态生效
  *
- * @author jifang.zjf
+ * @author jifang.zjf@alibaba-inc.com
+ * @version 1.0
  * @since 2017/6/7 下午8:28.
  */
 public abstract class SpringAutowiredAdaptor {

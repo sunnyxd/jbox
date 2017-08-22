@@ -19,4 +19,21 @@ public class JboxUtils {
         }
         return method;
     }
+
+    public static String getStackTrace() {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        if (stackTrace != null && stackTrace.length > 2) {
+            StringBuilder sb = new StringBuilder("current thread [")
+                    .append(Thread.currentThread().getName())
+                    .append("]'s stack trace: ");
+
+            for (int i = 2 /*trim Thread.getStackTrace() & JboxUtils.getStackTrace() */; i < stackTrace.length; ++i) {
+                sb.append("\n\t").append(stackTrace[i]);
+            }
+
+            return sb.toString();
+        }
+
+        return "";
+    }
 }
