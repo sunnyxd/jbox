@@ -2,10 +2,9 @@ package com.alibaba.jbox.executor;
 
 import com.alibaba.jbox.scheduler.AbstractScheduleTask;
 import com.alibaba.jbox.stream.StreamForker;
+import com.alibaba.jbox.utils.JboxUtils;
 import com.alibaba.jbox.utils.ProxyUtil;
-import org.springframework.util.ReflectionUtils;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.util.EnumSet;
 import java.util.Objects;
@@ -34,6 +33,16 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
 
     private static final ConcurrentMap<ExecutorService, ThreadPoolExecutor> executors = new ConcurrentHashMap<>();
 
+    private long period;
+
+    public ExecutorsMonitor() {
+        this(_1M_INTERVAL);
+    }
+
+    public ExecutorsMonitor(long period) {
+        this.period = period;
+    }
+
     @Override
     public void invoke() throws Exception {
 
@@ -43,14 +52,15 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
         ExecutorsManager.executors.forEach((group, executorProxy) -> {
             ThreadPoolExecutor executor = getThreadPoolExecutor(executorProxy);
 
-            BlockingQueue<Runnable> runnableQueue = executor.getQueue();
-            logBuilder.append(String.format("group:[%s], threads:[%s], active:[%d], task in queue:[%d]\n",
+            BlockingQueue<Runnable> queue = executor.getQueue();
+            logBuilder.append(String.format("group:[%s], threads:[%s], active:[%d], task in queue:[%d], remain:[%d]\n",
                     group,
                     executor.getPoolSize(),
                     executor.getActiveCount(),
-                    runnableQueue.size()));
+                    queue.size(),
+                    queue.remainingCapacity()));
 
-            StreamForker<Runnable> forker = new StreamForker<>(runnableQueue.stream())
+            StreamForker<Runnable> forker = new StreamForker<>(queue.stream())
                     .fork(ASYNC_KEY, stream -> stream
                             .filter(runnable -> runnable instanceof AsyncRunnable)
                             .map(runnable -> (AsyncRunnable) runnable)
@@ -84,22 +94,12 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
                 if (target instanceof ThreadPoolExecutor) {
                     executor = (ThreadPoolExecutor) target;
                 } else {
-                    executor = getFinalizableDelegatedExecutorServiceInnerExecutor(target);
+                    executor = (ThreadPoolExecutor) JboxUtils.getFieldValue(target, "e");
                 }
             }
 
             return executor;
         });
-    }
-
-    private ThreadPoolExecutor getFinalizableDelegatedExecutorServiceInnerExecutor(Object target) {
-        try {
-            Field executorField = target.getClass().getSuperclass().getDeclaredField("e");
-            ReflectionUtils.makeAccessible(executorField);
-            return (ThreadPoolExecutor) executorField.get(target);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new ExecutorException(e);
-        }
     }
 
     private class Collector implements java.util.stream.Collector<AsyncRunnable, StringBuilder, StringBuilder> {
@@ -136,21 +136,11 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
     }
 
     private AsyncRunnable getFutureTaskInnerAsyncRunnable(Runnable runnable) {
-        try {
-            Field callable = FutureTask.class.getDeclaredField("callable");
-            callable.setAccessible(true);
-            Object runnableAdapter = callable.get(runnable);
-
-            Field task = runnableAdapter.getClass().getDeclaredField("task");
-            task.setAccessible(true);
-            return (AsyncRunnable) task.get(runnableAdapter);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new ExecutorException(e);
-        }
+        return (AsyncRunnable) JboxUtils.getFieldValue(runnable, "callable", "task");
     }
 
     @Override
     public long period() {
-        return _1M_INTERVAL;
+        return period;
     }
 }

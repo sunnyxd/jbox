@@ -1,4 +1,8 @@
-package com.alibaba.jbox.executor;
+package com.alibaba.jbox.executor.policy;
+
+import com.alibaba.jbox.executor.AsyncRunnable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -6,11 +10,15 @@ import java.util.concurrent.ThreadPoolExecutor;
  * @author jifang
  * @since 2017/1/16 下午2:18.
  */
-public class LoggedCallerRunsPolicy extends ThreadPoolExecutor.CallerRunsPolicy implements LoggerInter {
+public class CallerRunsPolicy extends ThreadPoolExecutor.CallerRunsPolicy {
+
+    private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox.executor");
+
+    private static final Logger monitorLogger = LoggerFactory.getLogger("executor-monitor");
 
     private String group;
 
-    public LoggedCallerRunsPolicy(String group) {
+    public CallerRunsPolicy(String group) {
         this.group = group;
     }
 

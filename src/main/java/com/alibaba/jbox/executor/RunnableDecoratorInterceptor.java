@@ -40,6 +40,7 @@ class RunnableDecoratorInterceptor implements Interceptor {
      * 1. ${@code void execute(Runnable command); }
      * 2. ${@code Future<?> submit(Runnable task); }
      * 3. ${@code Future<T> submit(Runnable task, T result); }
+     * 4. ${@code ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit)}
      *
      * @param method
      * @param arguments

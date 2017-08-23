@@ -55,7 +55,7 @@ public class DiamondPropertySourcesPlaceholder
 
     private static final Logger logger = LoggerFactory.getLogger(DiamondPropertySourcesPlaceholder.class);
 
-    private static final ConcurrentMap<Class, Class> primitiveTypes = new ConcurrentHashMap<Class, Class>(14) {
+    private static final ConcurrentMap<Class, Class> primitiveTypes = new ConcurrentHashMap<Class, Class>() {
         private static final long serialVersionUID = -4085587013134835589L;
 
         {
@@ -317,8 +317,7 @@ public class DiamondPropertySourcesPlaceholder
                     initBeanMap(AopTargetUtils.getTarget(bean));
                 }
             } catch (Exception e) {
-                // TODO
-                throw new RuntimeException(e);
+                logger.error("initBeansMap error", e);
             }
         }
     }

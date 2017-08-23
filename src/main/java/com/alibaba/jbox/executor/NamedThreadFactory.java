@@ -4,10 +4,11 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * @author jifang
- * @since 2017/1/16 下午2:25.
+ * @author jifang@alibaba-inc.com
+ * @version 1.1
+ * @since 2017/1/16 14:25:00.
  */
-class NamedThreadFactory implements ThreadFactory {
+public class NamedThreadFactory implements ThreadFactory {
 
     private final AtomicInteger number = new AtomicInteger(0);
 
