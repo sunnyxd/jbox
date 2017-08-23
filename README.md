@@ -14,8 +14,9 @@
     2. 方法入参`@NotNull`、`@NotEmpty` 校验;
     3. 方法执行耗时监控.
 - 通用工具`com.alibaba.jbox.utils`:
+
 | Util | desc |
-| :-: | :- |
+| :------: | :-------- |
 | `AopTargetUtils` | 获取Aop target |
 | `BeanCopyUtil` | Bean属性对拷, 忽略属性类型 |
 | `DateUtils` | 日期时间格式化 |
