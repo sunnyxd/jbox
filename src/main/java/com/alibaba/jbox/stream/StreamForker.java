@@ -16,8 +16,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * TODO Test
- *
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.1
  * @since 2017/6/26 17:28:00.
