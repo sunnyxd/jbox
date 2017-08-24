@@ -53,12 +53,14 @@
             <version>${fastjson.version}</version>
             <optional>true</optional>
         </dependency>
+        <!--
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-proxy</artifactId>
             <version>${commons.proxy.version}</version>
             <optional>true</optional>
         </dependency>
+        -->
 
         <!-- byte code -->
         <dependency>

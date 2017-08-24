@@ -37,9 +37,22 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Aspect
 public class TraceAspect {
 
+    /**
+     * add logback.xml or log4j.xml {@code %X{traceId} }
+     * in {@code <pattern></pattern>} config
+     */
+    private static final String TRACE_ID = "traceId";
+
+    private static final Logger rootLogger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+
+    private static final Logger traceLogger = LoggerFactory.getLogger("com.alibaba.jbox.trace");
+
     private static final ConcurrentMap<Class, List<Object>> primitiveDefaultValues = new ConcurrentHashMap<>();
 
     private static final ConcurrentMap<Class<?>, Pair<List<Field>, List<Field>>> notNullEmptyFields = new ConcurrentHashMap<>();
+
+    // <package.class.method, logger>
+    private static final ConcurrentMap<String, Logger> bizLoggers = new ConcurrentHashMap<>();
 
     static {
         primitiveDefaultValues.put(byte.class, Arrays.asList(-1, 0));
@@ -60,18 +73,15 @@ public class TraceAspect {
         primitiveDefaultValues.put(Character.class, Arrays.asList(0, null));
     }
 
-    /**
-     * add logback.xml or log4j.xml {@code %X{traceId} }
-     * in {@code <pattern></pattern>} config
-     */
-    private static final String TRACE_ID = "traceId";
+    private volatile boolean paramCheck = false;
 
-    private static final Logger rootLogger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+    public TraceAspect() {
+        this(false);
+    }
 
-    private static final Logger traceLogger = LoggerFactory.getLogger("com.alibaba.jbox.trace");
-
-    // <package.class.method, logger>
-    private static final ConcurrentMap<String, Logger> bizLoggers = new ConcurrentHashMap<>();
+    public TraceAspect(boolean paramCheck) {
+        this.paramCheck = paramCheck;
+    }
 
     @Around("@annotation(com.alibaba.jbox.trace.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {
@@ -82,7 +92,9 @@ public class TraceAspect {
             Method method = JboxUtils.getRealMethod(joinPoint);
             Object[] args = joinPoint.getArgs();
             // 2. check arguments
-            checkArgumentsNotNullOrEmpty(method, args);
+            if (paramCheck) {
+                checkArgumentsNotNullOrEmpty(method, args);
+            }
 
             Object result = joinPoint.proceed(args);
 
@@ -293,5 +305,13 @@ public class TraceAspect {
         Field loggerField = clazz.getDeclaredField(loggerName);
         loggerField.setAccessible(true);
         return (Logger) loggerField.get(target);
+    }
+
+    public boolean isParamCheck() {
+        return paramCheck;
+    }
+
+    public void setParamCheck(boolean paramCheck) {
+        this.paramCheck = paramCheck;
     }
 }

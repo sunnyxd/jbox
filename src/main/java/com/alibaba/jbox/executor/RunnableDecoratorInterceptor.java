@@ -1,38 +1,33 @@
 package com.alibaba.jbox.executor;
 
-import org.apache.commons.proxy.Interceptor;
-import org.apache.commons.proxy.Invocation;
-
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * @author jifang
+ * @author jifang@alibaba-inc.com
+ * @version 1.1
  * @since 2017/1/16 下午3:42.
  */
-class RunnableDecoratorInterceptor implements Interceptor {
+class RunnableDecoratorInterceptor implements InvocationHandler {
+
+    private Object target;
+
+    public RunnableDecoratorInterceptor(Object target) {
+        this.target = target;
+    }
 
     @Override
-    public Object intercept(Invocation invocation) throws Throwable {
-
-        Object result;
-
-        Object[] arguments = invocation.getArguments();
-        Method method = invocation.getMethod();
-        Object target = invocation.getProxy();
-        if (isNeedProxy(method, arguments)) {
-            Runnable runnable = (Runnable) arguments[0];
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        // process param args
+        if (isNeedProxy(method, args)) {
+            Runnable runnable = (Runnable) args[0];
             RunnableDecorator decorator = new RunnableDecorator(runnable);
-
-            arguments[0] = decorator;
-
-            result = method.invoke(target, arguments);
-        } else {
-            result = invocation.proceed();
+            args[0] = decorator;
         }
 
-        return result;
+        return method.invoke(target, args);
     }
 
     /**

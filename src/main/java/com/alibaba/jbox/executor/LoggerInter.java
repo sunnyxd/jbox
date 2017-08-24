@@ -11,5 +11,5 @@ interface LoggerInter {
 
     Logger logger = LoggerFactory.getLogger("com.alibaba.jbox.executor");
 
-    Logger monitorLogger = LoggerFactory.getLogger("executor-monitor");
+    Logger monitorLogger = LoggerFactory.getLogger("executors-monitor");
 }

@@ -2,9 +2,9 @@ package com.alibaba.jbox.executor;
 
 import com.alibaba.jbox.executor.policy.CallerRunsPolicy;
 import com.alibaba.jbox.scheduler.ScheduleTask;
-import org.apache.commons.proxy.ProxyFactory;
 
 import javax.annotation.PreDestroy;
+import java.lang.reflect.Proxy;
 import java.util.concurrent.*;
 
 /**
@@ -102,12 +102,9 @@ public class ExecutorsManager implements LoggerInter {
     }
 
     private static Object createExecutorProxy(Object executor, Class<?> type) {
-
-        return new ProxyFactory().createInterceptorProxy(
-                executor,
-                new RunnableDecoratorInterceptor(),
-                new Class[]{type}
-        );
+        return Proxy.newProxyInstance(ExecutorsManager.class.getClassLoader(),
+                new Class[]{type},
+                new RunnableDecoratorInterceptor(executor));
     }
 
     @PreDestroy

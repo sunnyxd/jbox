@@ -4,7 +4,9 @@ import com.alibaba.jbox.scheduler.AbstractScheduleTask;
 import com.alibaba.jbox.stream.StreamForker;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.alibaba.jbox.utils.ProxyUtil;
+import org.springframework.util.ReflectionUtils;
 
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.EnumSet;
 import java.util.Objects;
@@ -31,6 +33,8 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
 
     private static final String FUTURE_KEY = "future";
 
+    private static final String CALLABLE_KEY = "callable";
+
     private static final ConcurrentMap<ExecutorService, ThreadPoolExecutor> executors = new ConcurrentHashMap<>();
 
     private long period;
@@ -47,7 +51,7 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
     public void invoke() throws Exception {
 
         StringBuilder logBuilder = new StringBuilder(1000);
-        logBuilder.append("executor groups as below:\n");
+        logBuilder.append("executors group as below:\n");
 
         ExecutorsManager.executors.forEach((group, executorProxy) -> {
             ThreadPoolExecutor executor = getThreadPoolExecutor(executorProxy);
@@ -63,20 +67,24 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
             StreamForker<Runnable> forker = new StreamForker<>(queue.stream())
                     .fork(ASYNC_KEY, stream -> stream
                             .filter(runnable -> runnable instanceof AsyncRunnable)
-                            .map(runnable -> (AsyncRunnable) runnable)
                             .collect(new Collector()))
                     .fork(FUTURE_KEY, stream -> stream
                             .filter(runnable -> runnable instanceof FutureTask)
-                            .map(this::getFutureTaskInnerAsyncRunnable)
+                            .map(this::getFutureTaskInnerAsyncObject)
+                            .collect(new Collector()))
+                    .fork(CALLABLE_KEY, stream -> stream
+                            .filter(callable -> callable instanceof AsyncCallable)
                             .collect(new Collector()));
 
             StreamForker.Results results = forker.getResults();
             StringBuilder asyncLogBuilder = results.get(ASYNC_KEY);
             StringBuilder futureLogBuilder = results.get(FUTURE_KEY);
+            StringBuilder callableLogBuilder = results.get(CALLABLE_KEY);
 
             logBuilder
                     .append(asyncLogBuilder)
-                    .append(futureLogBuilder);
+                    .append(futureLogBuilder)
+                    .append(callableLogBuilder);
         });
 
         monitorLogger.info(logBuilder.toString());
@@ -102,7 +110,7 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
         });
     }
 
-    private class Collector implements java.util.stream.Collector<AsyncRunnable, StringBuilder, StringBuilder> {
+    private class Collector implements java.util.stream.Collector<Object, StringBuilder, StringBuilder> {
 
         @Override
         public Supplier<StringBuilder> supplier() {
@@ -110,13 +118,17 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
         }
 
         @Override
-        public BiConsumer<StringBuilder, AsyncRunnable> accumulator() {
-            return (stringBuilder, asyncRunnable) -> stringBuilder.append(" -> ")
-                    .append("task: ")
-                    .append(asyncRunnable.taskInfo())
-                    .append(", obj: ")
-                    .append(Objects.hashCode(asyncRunnable))
-                    .append("\n");
+        public BiConsumer<StringBuilder, Object> accumulator() {
+            return (stringBuilder, object) -> {
+                Method taskInfoMethod = ReflectionUtils.findMethod(object.getClass(), "taskInfo");
+                ReflectionUtils.makeAccessible(taskInfoMethod);
+                stringBuilder.append(" -> ")
+                        .append("task: ")
+                        .append(ReflectionUtils.invokeMethod(taskInfoMethod, object))
+                        .append(", obj: ")
+                        .append(Objects.hashCode(object))
+                        .append("\n");
+            };
         }
 
         @Override
@@ -135,8 +147,13 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
         }
     }
 
-    private AsyncRunnable getFutureTaskInnerAsyncRunnable(Runnable runnable) {
-        return (AsyncRunnable) JboxUtils.getFieldValue(runnable, "callable", "task");
+    private Object getFutureTaskInnerAsyncObject(Object futureTask) {
+        Object callable = JboxUtils.getFieldValue(futureTask, "callable");
+        if (callable instanceof AsyncCallable) {
+            return callable;
+        } else {
+            return JboxUtils.getFieldValue(callable, "task");
+        }
     }
 
     @Override

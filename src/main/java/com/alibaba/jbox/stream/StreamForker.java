@@ -19,8 +19,8 @@ import java.util.stream.StreamSupport;
  * TODO Test
  *
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.0
- * @since 2017/6/26 下午5:28.
+ * @version 1.1
+ * @since 2017/6/26 17:28:00.
  */
 public class StreamForker<T> {
 
@@ -28,7 +28,9 @@ public class StreamForker<T> {
 
     private final Stream<T> stream;
 
-    // Function<Stream<T>, ?> 看似在消费上面的stream, 实际是消费的BlockingQ内的数据
+    /**
+     * Function<Stream<T>, ?> 看似是在消费'Stream<T>', 实际上是在消费'BlockingQ<T>'内的数据
+     */
     private final Map<Object, Function<Stream<T>, ?>> forks = new HashMap<>();
 
     public StreamForker(Stream<T> stream) {
@@ -57,18 +59,21 @@ public class StreamForker<T> {
 
     private ForkingStreamConsumer createStreamConsumer() {
 
+        // 将初始化时注入的'Stream<T>'内的数据轮询塞入各个'BlockingQ<T>'中
         List<BlockingQueue<T>> queues = new ArrayList<>(forks.size());
+        Map<Object, Future<?>> actions = new HashMap<>();
 
         // transfer Map<Object, Function> -> Map<Object, Future>
-        Map<Object, Future<?>> actions = new HashMap<>();
-        forks.forEach((key, function) -> {
+        for (Map.Entry<Object, Function<Stream<T>, ?>> entry : forks.entrySet()) {
             BlockingQueue<T> queue = new LinkedBlockingQueue<>();
             queues.add(queue);
 
             Stream<T> source = StreamSupport.stream(new BlockingQueueSpliterator(queue), false);
-            Future<?> future = CompletableFuture.supplyAsync(() -> function.apply(source));     // 启动异步消费任务
-            actions.put(key, future);
-        });
+            // 启动异步线程, 开始tack BlockingQ里面的数据, 但由于现在Q里面尚未数据, 所以线程阻塞
+            Future<?> future = CompletableFuture.supplyAsync(() -> entry.getValue().apply(source));
+
+            actions.put(entry.getKey(), future);
+        }
 
         return new ForkingStreamConsumer(queues, actions);
     }
@@ -87,11 +92,17 @@ public class StreamForker<T> {
 
         @Override
         public void accept(T t) {
-            queues.forEach(queue -> queue.offer(t));
+            // 将原始'Stream<T>'内的数据轮询push到每个任务的'BlockingQ'内
+            for (BlockingQueue<T> queue : queues) {
+                queue.offer(t);
+            }
         }
 
         public void finish() {
-            this.accept((T) END_OF_STREAM);
+            // 给每个'BlockingQ'塞入一条代表消费结束的消息
+            for (BlockingQueue<T> queue : queues) {
+                queue.offer((T) END_OF_STREAM);
+            }
         }
 
         @Override
@@ -99,7 +110,7 @@ public class StreamForker<T> {
             try {
                 return ((Future<R>) actions.get(key)).get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
+                throw new StreamForkerException(e);
             }
         }
     }
@@ -113,12 +124,17 @@ public class StreamForker<T> {
         }
 
         @Override
-        public boolean tryAdvance(Consumer<? super T> action) {
+        public boolean tryAdvance(Consumer<? super T> consumer) {
+            /**
+             * tips:
+             *   1. 当queue内没数据时, 需要让线程等待
+             *   2. 当线程消费完数据时, 又需要让线程停止运行
+             */
             while (true) {
                 try {
                     T item = queue.take();
                     if (item != END_OF_STREAM) {
-                        action.accept(item);
+                        consumer.accept(item);
                         return true;
                     } else {
                         return false;
