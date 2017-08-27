@@ -1,6 +1,6 @@
 package com.alibaba.jbox.scheduler;
 
-import com.alibaba.jbox.executor.ExecutorsManager;
+import com.alibaba.jbox.executor.ExecutorManager;
 import lombok.NonNull;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -23,7 +23,7 @@ public class TaskScheduler {
      */
     private static final int BASE_TIME_FRAGMENT = 100;
 
-    private static final ScheduledExecutorService executor = ExecutorsManager.newSingleThreadScheduledExecutor("jbox:task-scheduler");
+    private static final ScheduledExecutorService executor = ExecutorManager.newSingleThreadScheduledExecutor("jbox:task-scheduler");
 
     private static final ConcurrentMap<ScheduleTask, Pair<AtomicLong, Long>> taskMap = new ConcurrentHashMap<>();
 

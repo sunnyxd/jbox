@@ -14,20 +14,20 @@ import java.util.concurrent.*;
  * - 2) 线程以{@code '${group}-${number}'}形式命名, 使在查看线程栈时更加清晰;
  * - 3) 开放{@code newFixedMinMaxThreadPool()}方法, 提供比{@code Executors}更灵活, 比{@code ThreadPoolExecutor}更便捷的配置方式;
  * - 4) 提供{@code com.alibaba.jbox.executor.policy}线程拒绝策略, 在{@code RunnableQueue}满时打印日志;
- * - 5) 添加{@code ExecutorsMonitor}监控: 将线程池监控日志打印到{@code 'executor-monitor'}这个{@code Logger}下, 打印内容包含:
+ * - 5) 添加{@code ExecutorMonitor}监控: 将线程池监控日志打印到{@code 'executor-monitor'}这个{@code Logger}下, 打印内容包含:
  * -- 5.a) 线程组信息
  * -- 5.b) 线程总数
  * -- 5.c) 活跃线程数
  * -- 5.d) 被阻塞的任务描述(在RunnableQueue内的任务的描述), 以及实例code
  * -- 5.e) 队列尚余空间
  * 2. 封装{@code Runnable}为{@code AsyncRunnable}, 为提交的任务增加描述信息:
- * 3. 如果将{@code ExecutorsManager}注册为SpringBean, 会在应用关闭时自动将线程池关闭掉, 防止线程池未关导致应用下线不成功的bug.
+ * 3. 如果将{@code ExecutorManager}注册为SpringBean, 会在应用关闭时自动将线程池关闭掉, 防止线程池未关导致应用下线不成功的bug.
  *
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.2
  * @since 2017/1/16 14:15:00.
  */
-public class ExecutorsManager implements LoggerInter {
+public class ExecutorManager implements LoggerInter {
 
     static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
@@ -102,7 +102,7 @@ public class ExecutorsManager implements LoggerInter {
     }
 
     private static Object createExecutorProxy(Object executor, Class<?> type) {
-        return Proxy.newProxyInstance(ExecutorsManager.class.getClassLoader(),
+        return Proxy.newProxyInstance(ExecutorManager.class.getClassLoader(),
                 new Class[]{type},
                 new RunnableDecoratorInterceptor(executor));
     }

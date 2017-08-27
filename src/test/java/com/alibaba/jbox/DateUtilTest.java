@@ -14,7 +14,7 @@ import java.util.List;
 public class DateUtilTest {
 
     /**
-     * 6个线程 跑10万次 format parse 查看耗时 & 正确性
+     * 6个线程 跑10万次 timeFormat timeParse 查看耗时 & 正确性
      *
      * @param args
      */
@@ -38,8 +38,8 @@ public class DateUtilTest {
                     try {
                         for (int j = 0; j < 100_000; j++) {
                             String from = data[i2];
-                            Date d = DateUtils.parse(from);
-                            String to = DateUtils.format(d);
+                            Date d = DateUtils.timeParse(from);
+                            String to = DateUtils.timeFormat(d);
                             System.out.println("i: " + i2 + "\tj: " + j + "\tThreadID: "
                                     + Thread.currentThread().getId() + "\tThreadName: "
                                     + Thread.currentThread().getName() + "\t" + from + "\t" + to);
@@ -49,7 +49,7 @@ public class DateUtilTest {
                             }
                         }
                     } catch (ParseException e) {
-                        throw new RuntimeException("parse failed");
+                        throw new RuntimeException("timeParse failed");
                     }
                 }
             }, "formatter_test_thread_" + i);

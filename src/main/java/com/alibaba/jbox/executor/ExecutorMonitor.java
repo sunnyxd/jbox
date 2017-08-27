@@ -27,7 +27,7 @@ import java.util.function.Supplier;
  * @version 1.2
  * @since 2017/8/22 15:32:00.
  */
-public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInter {
+public class ExecutorMonitor extends AbstractScheduleTask implements LoggerInter {
 
     private static final String ASYNC_KEY = "async";
 
@@ -39,11 +39,11 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
 
     private long period;
 
-    public ExecutorsMonitor() {
+    public ExecutorMonitor() {
         this(_1M_INTERVAL);
     }
 
-    public ExecutorsMonitor(long period) {
+    public ExecutorMonitor(long period) {
         this.period = period;
     }
 
@@ -53,7 +53,7 @@ public class ExecutorsMonitor extends AbstractScheduleTask implements LoggerInte
         StringBuilder logBuilder = new StringBuilder(1000);
         logBuilder.append("executors group as below:\n");
 
-        ExecutorsManager.executors.forEach((group, executorProxy) -> {
+        ExecutorManager.executors.forEach((group, executorProxy) -> {
             ThreadPoolExecutor executor = getThreadPoolExecutor(executorProxy);
 
             BlockingQueue<Runnable> queue = executor.getQueue();

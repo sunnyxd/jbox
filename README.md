@@ -1,6 +1,6 @@
 # jbox 通用工具集合(类似Guava)
 ## 提供
-- 定制的线程池: `ExecutorsManager`、`ExecutorsMonitor`, 详细说明请参考`com.alibaba.jbox.executor.ExecutorsManager`
+- 定制的线程池: `ExecutorsManager`、`ExecutorsMonitor`, 详细说明请参考`com.alibaba.jbox.executor.ExecutorManager`
 - flood ab test框架: `com.alibaba.jbox.flood.AbFloodExperiment`
 - Log配置动态修改Configurator, 支持Logback, Log4j: `LogbackConfigurator`、`Log4jConfigurator`
 - 反射简化工具: `com.alibaba.jbox.reflections.Reflect`

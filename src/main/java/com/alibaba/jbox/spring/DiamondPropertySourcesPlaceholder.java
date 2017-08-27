@@ -9,6 +9,7 @@ import com.google.common.collect.Multimap;
 import com.taobao.diamond.client.Diamond;
 import com.taobao.diamond.manager.ManagerListener;
 import com.taobao.diamond.manager.ManagerListenerAdapter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,8 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.env.ConfigurablePropertyResolver;
 import org.springframework.core.io.Resource;
@@ -39,11 +42,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
 
 
 /**
- * @author jifang.zjf
+ * @author jifang.zjf@alibaba-inc.com
+ * @version 1.3
  * @since 2017/4/5 上午10:35.
  * <p/>
  * 从Spring 3.1开始建议使用PropertySourcesPlaceholderConfigurer装配properties,
@@ -51,7 +54,7 @@ import java.util.concurrent.CountDownLatch;
  */
 public class DiamondPropertySourcesPlaceholder
         extends PropertySourcesPlaceholderConfigurer
-        implements InitializingBean, DisposableBean {
+        implements InitializingBean, DisposableBean, ApplicationContextAware {
 
     private static final Logger logger = LoggerFactory.getLogger(DiamondPropertySourcesPlaceholder.class);
 
@@ -78,17 +81,19 @@ public class DiamondPropertySourcesPlaceholder
 
     private static Properties wholeProperties = new Properties();
 
-    private static Set<Object> beanNotInSpring = new HashSet<>();
+    private static Set<Object> beanNotInSpring = new HashSet<Object>();
 
     private static ConfigurableListableBeanFactory beanFactory;
 
+    private static ApplicationContext applicationContext;
+
     private ManagerListener listener;
 
-    private Map<String, String> diamondPropertiesTmp = new HashMap<>();
+    private Map<String, String> diamondPropertiesTmp = new HashMap<String, String>();
 
     private Multimap<String, Pair<Field, Object>> beanAnnotatedByValue = HashMultimap.create();
 
-    private List<Resource> yamlResources = new ArrayList<>();
+    private List<Resource> yamlResources = new ArrayList<Resource>();
 
     /*  -------------------------------------   */
     /*  ----------- Config Data -------------   */
@@ -98,6 +103,8 @@ public class DiamondPropertySourcesPlaceholder
     private String dataId = "properties";
 
     private String group = "config";
+
+    private long timeoutMs = 5 * 1000;
 
     public void setNeedDiamond(boolean needDiamond) {
         this.needDiamond = needDiamond;
@@ -113,6 +120,10 @@ public class DiamondPropertySourcesPlaceholder
         if (!Strings.isNullOrEmpty(group)) {
             this.group = group;
         }
+    }
+
+    public void setTimeoutMs(long timeoutMs) {
+        this.timeoutMs = timeoutMs;
     }
 
     /*  -------------------------------------   */
@@ -136,6 +147,10 @@ public class DiamondPropertySourcesPlaceholder
 
     public static BeanFactory getBeanFactory() {
         return beanFactory;
+    }
+
+    public static ApplicationContext getApplicationContext() {
+        return applicationContext;
     }
 
     public static void registerSpringOuterBean(Object bean) {
@@ -170,32 +185,34 @@ public class DiamondPropertySourcesPlaceholder
     @Override
     public void afterPropertiesSet() throws Exception {
         if (this.needDiamond) {
-            CountDownLatch latch = new CountDownLatch(1);
-            Diamond.addListener(this.dataId, this.group, (this.listener = new DiamondManagerListener(latch)));
-            latch.await();
+            String initConfig = Diamond.getConfig(this.dataId, this.group, this.timeoutMs);
+            if (!Strings.isNullOrEmpty(initConfig)) {
+                initDiamondProperties(JSONObject.parseObject(initConfig));
+            }
+            Diamond.addListener(this.dataId, this.group, (this.listener = new IgnoreSameConfigListener(initConfig)));
         }
     }
 
-    private class DiamondManagerListener extends ManagerListenerAdapter {
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        DiamondPropertySourcesPlaceholder.applicationContext = applicationContext;
+    }
 
-        private volatile boolean isInit = true;
+    private class IgnoreSameConfigListener extends ManagerListenerAdapter {
 
-        private CountDownLatch latch;
+        private volatile String lastContent;
 
-        private DiamondManagerListener(CountDownLatch latch) {
-            this.latch = latch;
+        public IgnoreSameConfigListener(String lastContent) {
+            this.lastContent = lastContent;
         }
 
         @Override
         public void receiveConfigInfo(String configInfo) {
-            JSONObject propertyJson = JSONObject.parseObject(configInfo);
-            if (isInit) {
-                initDiamondProperties(propertyJson);
-                isInit = false;
-            } else {
+            if (!StringUtils.equals(lastContent, configInfo)) {
+                lastContent = configInfo;
+                JSONObject propertyJson = JSONObject.parseObject(configInfo);
                 handleDataChanged(propertyJson);
             }
-            latch.countDown();
         }
     }
 
@@ -241,7 +258,8 @@ public class DiamondPropertySourcesPlaceholder
              */
             Map<?, ?> yamlMap = (Map<?, ?>) new Yaml().load(yamlResource.getInputStream());
 
-            yamlMap.forEach(properties::put);
+            properties.putAll(yamlMap);
+            // yamlMap.forEach(properties::put);
         }
 
         return properties;
@@ -249,7 +267,8 @@ public class DiamondPropertySourcesPlaceholder
 
     private void saveProperties(Map<?, ?> map) {
         if (!isNullOrEmpty(map)) {
-            map.forEach(wholeProperties::put);
+            wholeProperties.putAll(map);
+            // map.forEach(wholeProperties::put);
         }
     }
 
@@ -351,7 +370,9 @@ public class DiamondPropertySourcesPlaceholder
         if (primitiveType != null) {
             try {
                 instance = primitiveType.getMethod("valueOf", String.class).invoke(null, value);
-            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
+            } catch (IllegalAccessException ignored) {
+            } catch (InvocationTargetException ignored) {
+            } catch (NoSuchMethodException ignored) {
             }
         } else if (type == Character.class || type == char.class) {
             instance = value.charAt(0);
@@ -376,6 +397,12 @@ public class DiamondPropertySourcesPlaceholder
     public void destroy() throws Exception {
         if (this.listener != null) {
             Diamond.removeListener(this.dataId, this.group, this.listener);
+        }
+    }
+
+    private static class PropertySourcesPlaceholderException extends RuntimeException {
+        public PropertySourcesPlaceholderException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

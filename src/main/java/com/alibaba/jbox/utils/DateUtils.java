@@ -13,15 +13,27 @@ public class DateUtils {
 
     public static final long MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-    private static final String pattern = "yyyy-MM-dd HH:mm:ss";
+    private static final String timePattern = "yyyy-MM-dd HH:mm:ss";
 
-    private static final ThreadLocal<DateFormat> formatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(pattern));
+    private static final String datePattern = "yyyy-MM-dd";
 
-    public static String format(Object obj) {
-        return formatterMap.get().format(obj);
+    private static final ThreadLocal<DateFormat> timeFormatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(timePattern));
+
+    private static final ThreadLocal<DateFormat> dateFormatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(datePattern));
+
+    public static String timeFormat(Object obj) {
+        return timeFormatterMap.get().format(obj);
     }
 
-    public static Date parse(String source) throws ParseException {
-        return formatterMap.get().parse(source);
+    public static Date timeParse(String source) throws ParseException {
+        return timeFormatterMap.get().parse(source);
+    }
+
+    public static String dateFormat(Object obj) {
+        return dateFormatterMap.get().format(obj);
+    }
+
+    public static Date dateParse(String source) throws ParseException {
+        return dateFormatterMap.get().parse(source);
     }
 }
