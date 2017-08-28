@@ -18,7 +18,7 @@
         <commons.lang.version>3.4</commons.lang.version>
         <commons.proxy.version>1.0</commons.proxy.version>
         <cglib.version>3.2.0</cglib.version>
-        <spring.version>4.3.8.RELEASE</spring.version>
+        <spring.version>3.2.18.RELEASE</spring.version>
         <aspectj.version>1.8.10</aspectj.version>
         <slf4j.version>1.7.21</slf4j.version>
         <yaml.version>1.18</yaml.version>

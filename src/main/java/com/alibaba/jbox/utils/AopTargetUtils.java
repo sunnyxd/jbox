@@ -23,6 +23,8 @@ public class AopTargetUtils {
         if (target == null) {
             if (AopUtils.isAopProxy(bean)) {
                 target = AopUtils.isJdkDynamicProxy(bean) ? getJDKProxyTarget(bean) : getCglibProxyTarget(bean);
+            } else {
+                target = bean;
             }
             softReferenceMap.put(bean, target);
         }
