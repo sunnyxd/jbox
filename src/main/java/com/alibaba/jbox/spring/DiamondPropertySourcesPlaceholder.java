@@ -48,9 +48,8 @@ import java.util.concurrent.ConcurrentMap;
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.3
  * @since 2017/4/5 上午10:35.
- * <p/>
- * 从Spring 3.1开始建议使用PropertySourcesPlaceholderConfigurer装配properties,
- * 因为它能够基于Spring Environment及其属性源来解析占位符.
+ * - 从 spring 3.1 起建议使用'PropertySourcesPlaceholderConfigurer'装配,
+ * - 因为它能够基于Environment及其属性源来解析占位符.
  */
 public class DiamondPropertySourcesPlaceholder
         extends PropertySourcesPlaceholderConfigurer
@@ -360,7 +359,7 @@ public class DiamondPropertySourcesPlaceholder
         if (value.startsWith("${") && value.endsWith("}")) {
             return value.substring("${".length(), value.length() - 1);
         } else {
-            throw new RuntimeException("@Value annotation need \"${[config key]}\" config in the threshold() property");
+            throw new PropertySourcesPlaceholderException("@Value annotation need \"${[config key]}\" config in the threshold() property");
         }
     }
 
@@ -401,6 +400,19 @@ public class DiamondPropertySourcesPlaceholder
     }
 
     private static class PropertySourcesPlaceholderException extends RuntimeException {
+
+        public PropertySourcesPlaceholderException(String message) {
+            super(message);
+        }
+
+        public PropertySourcesPlaceholderException(Throwable cause) {
+            super(cause);
+        }
+
+        protected PropertySourcesPlaceholderException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+            super(message, cause, enableSuppression, writableStackTrace);
+        }
+
         public PropertySourcesPlaceholderException(String message, Throwable cause) {
             super(message, cause);
         }

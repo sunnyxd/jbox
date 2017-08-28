@@ -35,7 +35,7 @@ import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SING
 
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.3
+ * @version 1.4
  * @since 2017/8/22 15:32:00.
  */
 public class ExecutorMonitor implements ScheduleTask, LoggerInter,
@@ -104,6 +104,11 @@ public class ExecutorMonitor implements ScheduleTask, LoggerInter,
         monitorLogger.info(logBuilder.toString());
     }
 
+    /**
+     * @param executorProxy
+     * @return
+     * @since 1.1
+     */
     private ThreadPoolExecutor getThreadPoolExecutor(ExecutorService executorProxy) {
         return executors.computeIfAbsent(executorProxy, (proxy) -> {
 
@@ -124,6 +129,9 @@ public class ExecutorMonitor implements ScheduleTask, LoggerInter,
         });
     }
 
+    /**
+     * @since 1.2
+     */
     private class Collector implements java.util.stream.Collector<Object, StringBuilder, StringBuilder> {
 
         @Override
@@ -175,6 +183,11 @@ public class ExecutorMonitor implements ScheduleTask, LoggerInter,
         return period;
     }
 
+    /**
+     * @param registry
+     * @throws BeansException
+     * @since 1.4
+     */
     @Override
     public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
         Map<String, TaskScheduler> beans = applicationContext.getBeansOfType(TaskScheduler.class);
