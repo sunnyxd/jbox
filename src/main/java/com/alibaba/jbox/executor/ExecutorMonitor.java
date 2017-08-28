@@ -1,14 +1,23 @@
 package com.alibaba.jbox.executor;
 
-import com.alibaba.jbox.scheduler.AbstractScheduleTask;
+import com.alibaba.jbox.scheduler.ScheduleTask;
+import com.alibaba.jbox.scheduler.TaskScheduler;
 import com.alibaba.jbox.stream.StreamForker;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.alibaba.jbox.utils.ProxyUtil;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -22,12 +31,15 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SINGLETON;
+
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.2
+ * @version 1.3
  * @since 2017/8/22 15:32:00.
  */
-public class ExecutorMonitor extends AbstractScheduleTask implements LoggerInter {
+public class ExecutorMonitor implements ScheduleTask, LoggerInter,
+        BeanDefinitionRegistryPostProcessor, ApplicationContextAware {
 
     private static final String ASYNC_KEY = "async";
 
@@ -36,6 +48,8 @@ public class ExecutorMonitor extends AbstractScheduleTask implements LoggerInter
     private static final String CALLABLE_KEY = "callable";
 
     private static final ConcurrentMap<ExecutorService, ThreadPoolExecutor> executors = new ConcurrentHashMap<>();
+
+    private ApplicationContext applicationContext;
 
     private long period;
 
@@ -159,5 +173,38 @@ public class ExecutorMonitor extends AbstractScheduleTask implements LoggerInter
     @Override
     public long period() {
         return period;
+    }
+
+    @Override
+    public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+        Map<String, TaskScheduler> beans = applicationContext.getBeansOfType(TaskScheduler.class);
+        if (beans == null || beans.isEmpty()) {
+            RootBeanDefinition taskScheduler = new RootBeanDefinition(TaskScheduler.class);
+            taskScheduler.setInitMethodName("start");
+            taskScheduler.setDestroyMethodName("shutdown");
+            taskScheduler.setScope(SCOPE_SINGLETON);
+            taskScheduler.getConstructorArgumentValues().addIndexedArgumentValue(0, true);
+            registry.registerBeanDefinition(getUsableBeanName("com.alibaba.jbox.scheduler.TaskScheduler", registry), taskScheduler);
+        }
+    }
+
+    private String getUsableBeanName(String initBeanName, BeanDefinitionRegistry registry) {
+        String beanName;
+        int index = 0;
+        do {
+            beanName = initBeanName + "#" + index++;
+        } while (registry.isBeanNameInUse(beanName));
+
+        return beanName;
+    }
+
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+        beanFactory.getBean(TaskScheduler.class).register(this);
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
     }
 }
