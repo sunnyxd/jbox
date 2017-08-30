@@ -10,7 +10,6 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 
 import java.beans.PropertyDescriptor;
-import java.text.NumberFormat;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -85,19 +84,17 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
                     .append(" as below: \n");
 
 
-            NumberFormat formatter = NumberFormat.getNumberInstance();
-            formatter.setMaximumFractionDigits(2);
             for (int i = 0; i < top; ++i) {
                 Triple<String, String, Long> triple = queue.poll();
                 msgBuilder
-                        .append("  ")
+                        .append(i < 10 ? "  " : " ")
                         .append(i + 1)
                         .append(". bean:'")
                         .append(triple.getLeft())
                         .append("', type [")
                         .append(triple.getMiddle())
                         .append("], cost: [")
-                        .append(formatter.format(triple.getRight() * 1.0 / 1000))
+                        .append(String.format("%.2f", triple.getRight() * 1.0 / 1000))
                         .append("]s\n");
             }
 
