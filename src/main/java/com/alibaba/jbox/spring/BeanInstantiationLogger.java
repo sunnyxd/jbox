@@ -1,5 +1,6 @@
 package com.alibaba.jbox.spring;
 
+import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -9,6 +10,8 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 
 import java.beans.PropertyDescriptor;
+import java.text.NumberFormat;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -20,7 +23,9 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class BeanInstantiationLogger implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
 
-    private static final Logger logger = LoggerFactory.getLogger(BeanInstantiationLogger.class);
+    private static final Logger logger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+
+    private static final PriorityQueue<Triple<String, String, Long>> queue = new PriorityQueue<>((o1, o2) -> (int) (o2.getRight() - o1.getRight()));
 
     private static final AtomicLong totalCost = new AtomicLong(0L);
 
@@ -51,11 +56,13 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        threadLocals.computeIfPresent(beanName, (instanceName, threadLocal) -> {
+        threadLocals.computeIfPresent(beanName, (k, threadLocal) -> {
+            String beanType = bean.getClass().getName();
             long cost = System.currentTimeMillis() - threadLocal.get();
             totalCost.addAndGet(cost);
+            queue.offer(Triple.of(beanName, beanType, cost));
 
-            String message = String.format(" -> bean:'%s' of type [%s] init cost: [%s] ms", instanceName, bean.getClass().getName(), cost);
+            String message = String.format(" -> bean:'%s' of type [%s] init cost: [%s] ms", beanName, beanType, cost);
             logger.info(message);
             return null;
         });
@@ -66,10 +73,37 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         if (event.getApplicationContext().getParent() == null) {
-            String message = String.format(" -> application '%s' context init total cost: [%s] ms",
-                    System.getProperty("project.name", "unnamed"),
-                    totalCost.get());
-            logger.info(message);
+            int top = Math.min(queue.size(), 10);
+            StringBuilder msgBuilder = new StringBuilder(1000);
+            msgBuilder
+                    .append("application '")
+                    .append(System.getProperty("project.name", "unnamed"))
+                    .append("' context init total cost: [")
+                    .append(totalCost.get())
+                    .append("] ms, top ")
+                    .append(top)
+                    .append(" as below: \n");
+
+
+            NumberFormat formatter = NumberFormat.getNumberInstance();
+            formatter.setMaximumFractionDigits(2);
+            for (int i = 0; i < top; ++i) {
+                Triple<String, String, Long> triple = queue.poll();
+                msgBuilder
+                        .append("  ")
+                        .append(i + 1)
+                        .append(". bean:'")
+                        .append(triple.getLeft())
+                        .append("', type [")
+                        .append(triple.getMiddle())
+                        .append("], cost: [")
+                        .append(formatter.format(triple.getRight() * 1.0 / 1000))
+                        .append("]s\n");
+            }
+
+            threadLocals.clear();
+            queue.clear();
+            logger.info(msgBuilder.toString());
         }
     }
 }

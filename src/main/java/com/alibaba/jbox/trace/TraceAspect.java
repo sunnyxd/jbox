@@ -13,7 +13,7 @@ import org.slf4j.MDC;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
-import javax.validation.Validator;
+import javax.validation.executable.ExecutableValidator;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.text.MessageFormat;
@@ -64,7 +64,7 @@ public class TraceAspect {
             // 2. check arguments
             if (paramCheck) {
                 // checkArgumentsNotNullOrEmpty(method, args);
-                validateArguments(args);
+                validateArguments(joinPoint.getTarget(), method, args);
             }
 
             Object result = joinPoint.proceed(args);
@@ -169,7 +169,7 @@ public class TraceAspect {
             loggerField.setAccessible(true);
             return (Logger) loggerField.get(target);
         } catch (IllegalAccessException | NoSuchFieldException e) {
-            throw new TraceException("not such logger named: " + loggerName + ", in class: " + clazz);
+            throw new TraceException("not such 'org.slf4j.Logger' instance named [" + loggerName + "], in class [" + clazz.getName() + "]");
         }
     }
 
@@ -177,15 +177,14 @@ public class TraceAspect {
     /***  check arguments with Validator @since 1.3  ***/
     /*** ******************************************* ***/
     private static class InnerValidator {
-        private static final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        private static final ExecutableValidator validator = Validation.buildDefaultValidatorFactory().getValidator().forExecutables();
     }
 
-    private void validateArguments(Object[] args) {
-        for (Object arg : args) {
-            Set<ConstraintViolation<Object>> violations = InnerValidator.validator.validate(arg);
-            if (!violations.isEmpty()) {
-                System.out.println(violations);
-            }
+    private void validateArguments(Object target, Method method, Object[] args) {
+        Set<ConstraintViolation<Object>> violations = InnerValidator.validator.validateParameters(target, method, args);
+        if (!violations.isEmpty()) {
+            // todo
+            System.out.println(violations);
         }
     }
 
