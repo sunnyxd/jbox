@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.0
+ * @version 1.1
  * @since 2017/7/15 07:03:00.
  */
 public class BeanInstantiationLogger implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
@@ -103,7 +103,7 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
 
             threadLocals.clear();
             queue.clear();
-            logger.info(msgBuilder.toString());
+            logger.warn(msgBuilder.toString());
         }
     }
 }
