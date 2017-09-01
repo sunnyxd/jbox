@@ -81,14 +81,14 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
                     .append(totalCost.get())
                     .append("] ms, top ")
                     .append(top)
-                    .append(" as below: \n");
+                    .append(" : \n");
 
 
-            for (int i = 0; i < top; ++i) {
+            for (int i = 1; i <= top; ++i) {
                 Triple<String, String, Long> triple = queue.poll();
                 msgBuilder
                         .append(i < 10 ? "  " : " ")
-                        .append(i + 1)
+                        .append(i)
                         .append(". bean:'")
                         .append(triple.getLeft())
                         .append("', type [")
