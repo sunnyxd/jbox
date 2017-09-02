@@ -1,18 +1,22 @@
 package com.alibaba.jbox.trace;
 
 
+import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.google.common.base.Strings;
 import com.taobao.eagleeye.EagleEye;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
+import javax.validation.ValidationException;
+import javax.validation.ValidatorFactory;
 import javax.validation.executable.ExecutableValidator;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -31,8 +35,7 @@ import java.util.concurrent.ConcurrentMap;
 public class TraceAspect {
 
     /**
-     * add logback.xml or log4j.xml {@code %X{traceId} }
-     * in {@code <pattern></pattern>} config
+     * add logback.xml or log4j.xml {@code %X{traceId}} in {@code <pattern/>} config.
      */
     private static final String TRACE_ID = "traceId";
 
@@ -40,40 +43,60 @@ public class TraceAspect {
 
     private static final Logger traceLogger = LoggerFactory.getLogger("com.alibaba.jbox.trace");
 
-    // <package.class.method, logger>
     private static final ConcurrentMap<String, Logger> bizLoggers = new ConcurrentHashMap<>();
 
-    private volatile boolean paramCheck = false;
+    /**
+     * determine 'validate arguments' use or not.
+     */
+    private volatile boolean validator = false;
+
+    /**
+     * determine 'log method invoke cost time' use or not.
+     */
+    private volatile boolean elapsed = false;
+
+    /**
+     * determine the 'log method invoke cost time' append method param or not.
+     */
+    private volatile boolean param = true;
 
     public TraceAspect() {
-        this(false);
+        this(false, false, false);
     }
 
-    public TraceAspect(boolean paramCheck) {
-        this.paramCheck = paramCheck;
+    public TraceAspect(boolean validator, boolean elapsed, boolean param) {
+        this.validator = validator;
+        this.elapsed = elapsed;
+        this.param = param;
     }
 
     @Around("@annotation(com.alibaba.jbox.trace.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {
-        // 1. put traceId
+
+        /*
+         * @since 1.0: put traceId
+         */
         MDC.put(TRACE_ID, EagleEye.getTraceId());
         try {
             long start = System.currentTimeMillis();
             Method method = JboxUtils.getRealMethod(joinPoint);
             Object[] args = joinPoint.getArgs();
-            // 2. check arguments
-            if (paramCheck) {
-                // checkArgumentsNotNullOrEmpty(method, args);
+
+            /*
+             * @since 1.2 validate arguments
+             */
+            if (validator) {
                 validateArguments(joinPoint.getTarget(), method, args);
             }
 
             Object result = joinPoint.proceed(args);
 
-            Trace trace = method.getAnnotation(Trace.class);
-            if (trace != null) {
+            /*
+             * @since 1.1 logger invoke elapsed time & parameters
+             */
+            Trace trace;
+            if (elapsed && (trace = method.getAnnotation(Trace.class)) != null) {
                 long costTime = System.currentTimeMillis() - start;
-
-                // 3. log over time
                 if (isNeedLogger(trace, costTime)) {
                     String logContent = buildLogContent(method, costTime, trace, args);
 
@@ -84,10 +107,12 @@ public class TraceAspect {
 
             return result;
         } catch (Throwable e) {
-            rootLogger.error("", e);
+            rootLogger.error("method: [{}] invoke failed",
+                    ((MethodSignature) joinPoint.getSignature()).getMethod().getName(),
+                    e);
+
             throw e;
         } finally {
-            // 4. remove traceId
             MDC.remove(TRACE_ID);
         }
     }
@@ -98,7 +123,7 @@ public class TraceAspect {
     /*** ******************************* ***/
 
     private boolean isNeedLogger(Trace trace, long costTime) {
-        return trace.value() && costTime > trace.threshold();
+        return costTime > trace.threshold();
     }
 
     private String buildLogContent(Method method, long costTime, Trace trace, Object[] args) {
@@ -112,7 +137,7 @@ public class TraceAspect {
                 .append(costTime)
                 .append("]ms");
 
-        if (trace.param()) {
+        if (param) {
             logBuilder.append(", params:")
                     .append(Arrays.toString(args))
                     .append(".");
@@ -128,10 +153,10 @@ public class TraceAspect {
         String methodName = MessageFormat.format("{0}.{1}", clazz.getName(), method.getName());
         Logger bizLogger = bizLoggers.computeIfAbsent(methodName, key -> {
             try {
-                if (Strings.isNullOrEmpty(trace.logger())) {
+                if (Strings.isNullOrEmpty(trace.value())) {
                     return getDefaultBizLogger(clazz, target);
                 } else {
-                    return getNamedBizLogger(trace.logger(), clazz, target);
+                    return getNamedBizLogger(trace.value(), clazz, target);
                 }
             } catch (IllegalAccessException e) {
                 throw new TraceException(e);
@@ -174,166 +199,58 @@ public class TraceAspect {
     }
 
     /*** ******************************************* ***/
-    /***  check arguments with Validator @since 1.3  ***/
+    /***  validator arguments with Validator @since 1.3  ***/
     /*** ******************************************* ***/
     private static class InnerValidator {
-        private static final ExecutableValidator validator = Validation.buildDefaultValidatorFactory().getValidator().forExecutables();
+        private static final ExecutableValidator validator;
+
+        static {
+            ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+            validator = factory.getValidator().forExecutables();
+        }
     }
 
     private void validateArguments(Object target, Method method, Object[] args) {
-        Set<ConstraintViolation<Object>> violations = InnerValidator.validator.validateParameters(target, method, args);
-        if (!violations.isEmpty()) {
-            // todo
-            System.out.println(violations);
-        }
-    }
-
-    public boolean isParamCheck() {
-        return paramCheck;
-    }
-
-    public void setParamCheck(boolean paramCheck) {
-        this.paramCheck = paramCheck;
-    }
-
-    /*** **************************** ***/
-    /***  check arguments @since 1.2  ***/
-    /***     @deprecated since 1.3    ***/
-    /*** **************************** ***/
-    /*
-    private static final ConcurrentMap<Class, List<Object>> primitiveDefaultValues = new ConcurrentHashMap<>();
-
-    private static final ConcurrentMap<Class<?>, Pair<List<Field>, List<Field>>> notNullEmptyFields = new ConcurrentHashMap<>();
-
-    static {
-        primitiveDefaultValues.put(byte.class, Arrays.asList(-1, 0));
-        primitiveDefaultValues.put(Byte.class, Arrays.asList(-1, 0, null));
-        primitiveDefaultValues.put(short.class, Arrays.asList(-1, 0));
-        primitiveDefaultValues.put(Short.class, Arrays.asList(-1, 0, null));
-        primitiveDefaultValues.put(int.class, Arrays.asList(-1, 0));
-        primitiveDefaultValues.put(Integer.class, Arrays.asList(-1, 0, null));
-        primitiveDefaultValues.put(long.class, Arrays.asList(-1, 0));
-        primitiveDefaultValues.put(Long.class, Arrays.asList(-1, 0, null));
-        primitiveDefaultValues.put(float.class, Collections.singletonList(0.0f));
-        primitiveDefaultValues.put(Float.class, Arrays.asList(0.0f, null));
-        primitiveDefaultValues.put(double.class, Collections.singletonList(0.0d));
-        primitiveDefaultValues.put(Double.class, Arrays.asList(0.0d, null));
-        primitiveDefaultValues.put(boolean.class, Collections.singletonList(false));
-        primitiveDefaultValues.put(Boolean.class, Arrays.asList(false, null));
-        primitiveDefaultValues.put(char.class, Collections.singletonList(0));
-        primitiveDefaultValues.put(Character.class, Arrays.asList(0, null));
-    }
-    */
-
-    /*
-    @Deprecated
-    private void checkArgumentsNotNullOrEmpty(Method method, Object[] args) {
-        Parameter[] parameters = method.getParameters();
-        for (int i = 0; i < parameters.length; ++i) {
-            Parameter parameter = parameters[i];
-            String paramName = parameter.getName();
-            Object arg = args[i];
-
-            NotNull notNull = parameter.getAnnotation(NotNull.class);
-            if (notNull != null) {
-                checkNotNull(arg, method, notNull.name(), paramName);
+        Set<ConstraintViolation<Object>> violationSet = InnerValidator.validator.validateParameters(target, method, args);
+        if (violationSet != null && !violationSet.isEmpty()) {
+            StringBuilder msgBuilder = new StringBuilder(128);
+            for (ConstraintViolation violation : violationSet) {
+                msgBuilder
+                        .append("path: ")
+                        .append(violation.getPropertyPath())
+                        .append(", err msg:")
+                        .append(violation.getMessage())
+                        .append("\n");
             }
+            msgBuilder.append("original parameters: ")
+                    .append(JSONObject.toJSONString(args))
+                    .append("\n");
 
-            NotEmpty notEmpty = parameter.getAnnotation(NotEmpty.class);
-            if (notEmpty != null) {
-                checkNotEmpty(arg, parameter.getType(), method, notEmpty.name(), paramName);
-            }
-
-            Pair<List<Field>, List<Field>> pair = getNotNullEmptyFields(arg);
-            // 需要check argument的内部DTO属性
-            if (!pair.getLeft().isEmpty() || !pair.getRight().isEmpty()) {
-                checkField(pair, arg, paramName, method);
-            }
+            throw new ValidationException(msgBuilder.toString());
         }
     }
 
-    private void checkNotNull(Object arg, Method method, String annotationName, String paramName) {
-        Preconditions.checkArgument(arg != null,
-                String.format("method [%s]'s param [%s] can not be null",
-                        method,
-                        Strings.isNullOrEmpty(annotationName) ? paramName : annotationName)
-        );
+    public boolean isValidator() {
+        return validator;
     }
 
-    private void checkNotEmpty(Object arg, Class<?> paramType, Method method, String annotationName, String paramName) {
-        // first check not null
-        checkNotNull(arg, method, annotationName, paramName);
-
-        // after check not empty
-        Preconditions.checkArgument(
-                objectNotEmpty(paramType, arg),
-                String.format("method [%s]'s param [%s] can not be empty",
-                        method,
-                        Strings.isNullOrEmpty(annotationName) ? paramName : annotationName)
-        );
+    public void setValidator(boolean validator) {
+        this.validator = validator;
     }
 
-    private void checkField(Pair<List<Field>, List<Field>> pair, Object arg, String paramName, Method method) {
-        // check not null
-        for (Field notNullField : pair.getLeft()) {
-            ReflectionUtils.makeAccessible(notNullField);
-            Object fieldValue = ReflectionUtils.getField(notNullField, arg);
-            checkFieldNotNull(fieldValue, method, paramName, notNullField.getAnnotation(NotNull.class).name(), notNullField.getName());
-        }
-
-        // check not empty
-        for (Field notEmptyField : pair.getRight()) {
-            ReflectionUtils.makeAccessible(notEmptyField);
-
-            String notEmptyFieldName = notEmptyField.getAnnotation(NotEmpty.class).name();
-            String fieldName = notEmptyField.getName();
-
-            Object fieldValue = ReflectionUtils.getField(notEmptyField, arg);
-            checkFieldNotNull(fieldValue, method, paramName, notEmptyFieldName, fieldName);
-            checkFieldNotEmpty(fieldValue, method, paramName, notEmptyFieldName, fieldName);
-        }
+    public boolean isElapsed() {
+        return elapsed;
     }
 
-    private void checkFieldNotEmpty(Object value, Method method, String paramName, String annotationName, String fieldName) {
-        Preconditions.checkArgument(objectNotEmpty(value.getClass(), value),
-                String.format("method [%s]'s param [%s]'s field [%s] can not be empty",
-                        method,
-                        paramName,
-                        Strings.isNullOrEmpty(annotationName) ? fieldName : annotationName));
-
+    public void setElapsed(boolean elapsed) {
+        this.elapsed = elapsed;
     }
 
-
-    private void checkFieldNotNull(Object value, Method method, String paramName, String annotationName, String fieldName) {
-        Preconditions.checkArgument(value != null,
-                String.format("method [%s]'s param [%s]'s field [%s] can not be null",
-                        method,
-                        paramName,
-                        Strings.isNullOrEmpty(annotationName) ? fieldName : annotationName));
+    public boolean isParam() {
+        return param;
     }
 
-    private Pair<List<Field>, List<Field>> getNotNullEmptyFields(Object arg) {
-        return notNullEmptyFields.computeIfAbsent(arg.getClass(), (paramType) -> {
-            List<Field> notNullFields = FieldUtils.getFieldsListWithAnnotation(paramType, NotNull.class);
-            List<Field> notEmptyFields = FieldUtils.getFieldsListWithAnnotation(paramType, NotEmpty.class);
-
-            return Pair.of(new CopyOnWriteArrayList<>(notNullFields), new CopyOnWriteArrayList<>(notEmptyFields));
-        });
+    public void setParam(boolean param) {
+        this.param = param;
     }
-
-    private boolean objectNotEmpty(Class<?> paramType, Object arg) {
-        List<Object> defaultValues = primitiveDefaultValues.get(paramType);
-        if (defaultValues != null) {
-            return !defaultValues.contains(arg);
-        } else if (String.class.isAssignableFrom(paramType)) {
-            return !Strings.isNullOrEmpty((String) arg);
-        } else if (Collection.class.isAssignableFrom(paramType)) {
-            return !((Collection) arg).isEmpty();
-        } else if (Map.class.isAssignableFrom(paramType)) {
-            return !((Map) arg).isEmpty();
-        }
-
-        return true;
-    }
-    */
 }

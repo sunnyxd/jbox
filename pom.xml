@@ -25,7 +25,9 @@
         <diamond.version>3.7.8</diamond.version>
         <eagleeye.version>1.5.2.5</eagleeye.version>
         <lombok.version>1.16.16</lombok.version>
+        <validation.api.version>2.0.0.Final</validation.api.version>
         <hibernate.validator.version>5.4.1.Final</hibernate.validator.version>
+        <el.version>3.0.1-b08</el.version>
 
         <junit.version>4.12</junit.version>
         <logback.version>1.1.3</logback.version>
@@ -117,14 +119,25 @@
             <version>${aspectj.version}</version>
             <optional>true</optional>
         </dependency>
-        <!-- 推荐使用hibernate的validator实现, 因为他还提供了如@NotEmpty等的扩展 -->
+        <!-- validation api 新增了如@NotEmpty等扩展 -->
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+            <version>${validation.api.version}</version>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-validator</artifactId>
             <version>${hibernate.validator.version}</version>
             <optional>true</optional>
         </dependency>
-
+        <dependency>
+            <groupId>org.glassfish</groupId>
+            <artifactId>javax.el</artifactId>
+            <version>${el.version}</version>
+            <optional>true</optional>
+        </dependency>
 
         <!-- zk -->
         <dependency>

@@ -7,8 +7,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * @author jifang.zjf
- * @since  2016/11/25 11:51.
+ * @author jifang.zjf@alibaba-inc.com
+ * @version 1.3
+ * @since 2016/11/25 11:51.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
@@ -16,24 +17,13 @@ import java.lang.annotation.Target;
 public @interface Trace {
 
     /**
-     * open Trace monitoring or not.
+     * determine the 'method invoke cost time' logger(type {@code org.slf4j.Logger}) used.
      */
-    boolean value() default true;
+    String value() default "";
 
     /**
-     * method invoke total cost threshold,
+     * method invoke total cost threshold, dependent logger config.
      * if ${method invoke cost time} > ${threshold} then append an 'cost time' log.
      */
     long threshold() default -1;
-
-    /**
-     * determine the 'cost time' logger used
-     * (default use the only one 'org.slf4j.Logger' in this class)
-     */
-    String logger() default "";
-
-    /**
-     * append params in log or not.
-     */
-    boolean param() default false;
 }

@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class BeanInstantiationLogger implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
 
+    private static final int DEFAULT_TOP = 10;
+
     private static final Logger logger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
 
     private static final PriorityQueue<Triple<String, String, Long>> queue = new PriorityQueue<>((o1, o2) -> (int) (o2.getRight() - o1.getRight()));
@@ -29,6 +31,16 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
     private static final AtomicLong totalCost = new AtomicLong(0L);
 
     private static final ConcurrentMap<String, ThreadLocal<Long>> threadLocals = new ConcurrentHashMap<>();
+
+    private int top;
+
+    public BeanInstantiationLogger() {
+        this(DEFAULT_TOP);
+    }
+
+    public BeanInstantiationLogger(int top) {
+        this.top = top;
+    }
 
     @Override
     public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
@@ -72,7 +84,7 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         if (event.getApplicationContext().getParent() == null) {
-            int top = Math.min(queue.size(), 10);
+            int top = Math.min(queue.size(), this.top);
             StringBuilder msgBuilder = new StringBuilder(1000);
             msgBuilder
                     .append("application '")
@@ -102,5 +114,13 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
             queue.clear();
             logger.warn(msgBuilder.toString());
         }
+    }
+
+    public int getTop() {
+        return top;
+    }
+
+    public void setTop(int top) {
+        this.top = top;
     }
 }
