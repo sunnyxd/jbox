@@ -4,9 +4,6 @@ package com.alibaba.jbox.trace;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.google.common.base.Strings;
-import com.taobao.csp.sentinel.Entry;
-import com.taobao.csp.sentinel.SphU;
-import com.taobao.csp.sentinel.slots.block.BlockException;
 import com.taobao.eagleeye.EagleEye;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -23,7 +20,6 @@ import javax.validation.ValidatorFactory;
 import javax.validation.executable.ExecutableValidator;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Set;
@@ -92,7 +88,6 @@ public class TraceAspect {
          * @since 1.0: put traceId
          */
         MDC.put(TRACE_ID, EagleEye.getTraceId());
-        Entry entry = null;
         try {
             long start = System.currentTimeMillis();
             Method method = JboxUtils.getRealMethod(joinPoint);
@@ -108,9 +103,8 @@ public class TraceAspect {
             /*
              * @since 1.4 sentinel
              */
-            if (sentinel &&
-                    !(Modifier.isPrivate(method.getModifiers()) || Modifier.isProtected(method.getModifiers()))) {
-                entry = SphU.entry(method);
+            if (sentinel) {
+                SentinelHolder.getInstance().entry(method);
             }
 
             Object result = joinPoint.proceed(args);
@@ -130,22 +124,13 @@ public class TraceAspect {
             }
 
             return result;
-        } catch (BlockException e) {
-            rootLogger.warn("method: [{}] invoke was blocked by sentinel",
-                    ((MethodSignature) joinPoint.getSignature()).getMethod().getName(),
-                    e);
-            throw e;
         } catch (Throwable e) {
             rootLogger.error("method: [{}] invoke failed",
                     ((MethodSignature) joinPoint.getSignature()).getMethod().getName(),
                     e);
-
             throw e;
         } finally {
             MDC.remove(TRACE_ID);
-            if (entry != null) {
-                entry.exit();
-            }
         }
     }
 
