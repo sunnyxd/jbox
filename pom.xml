@@ -8,7 +8,7 @@
 
     <groupId>com.alibaba.jbox</groupId>
     <artifactId>jbox</artifactId>
-    <version>1.3.1-SNAPSHOT</version>
+    <version>1.3.3-SNAPSHOT</version>
 
     <properties>
         <guava.version>20.0</guava.version>
@@ -24,6 +24,8 @@
         <yaml.version>1.18</yaml.version>
         <diamond.version>3.7.8</diamond.version>
         <eagleeye.version>1.5.2.5</eagleeye.version>
+        <sentinel.version>2.12.0</sentinel.version>
+        <hsf.version>2.1.1.7</hsf.version>
         <lombok.version>1.16.16</lombok.version>
         <validation.api.version>2.0.0.Final</validation.api.version>
         <hibernate.validator.version>5.4.1.Final</hibernate.validator.version>
@@ -194,6 +196,19 @@
             <groupId>com.taobao.eagleeye</groupId>
             <artifactId>eagleeye-core</artifactId>
             <version>${eagleeye.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.taobao.csp</groupId>
+            <artifactId>sentinel</artifactId>
+            <version>${sentinel.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.taobao.hsf</groupId>
+            <artifactId>hsf.app.spring</artifactId>
+            <version>${hsf.version}</version>
+            <scope>provided</scope>
             <optional>true</optional>
         </dependency>
 

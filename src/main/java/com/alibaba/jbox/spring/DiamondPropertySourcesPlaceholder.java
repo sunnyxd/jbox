@@ -46,7 +46,12 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.3
+ * @version 1.4
+ *          - 1.0: a simple vitamin faced use @{code org.springframework.beans.factory.config.PlaceholderConfigurerSupport};
+ *          - 1.1: replace use {@code org.springframework.context.support.PropertySourcesPlaceholderConfigurer};
+ *          - 1.2: change vitamin to Diamond;
+ *          - 1.3: load yaml file as a config file format;
+ *          - 1.4: add {@code com.alibaba.jbox.spring.FieldChangedCallback} when Field value changed.
  * @since 2017/4/5 上午10:35.
  * - 从 spring 3.1 起建议使用'PropertySourcesPlaceholderConfigurer'装配,
  * - 因为它能够基于Environment及其属性源来解析占位符.
@@ -297,25 +302,46 @@ public class DiamondPropertySourcesPlaceholder
             if (!currentValue.equals(wholeProperties.get(key))) {
                 wholeProperties.put(key, currentValue);
 
-                Collection<Pair<Field, Object>> filedWithBeans = this.beanAnnotatedByValue.get(key);
-                if (!isNullOrEmpty(filedWithBeans)) {
-                    for (Pair<Field, Object> pair : filedWithBeans) {
+                Collection<Pair<Field, Object>> fieldWithBeans = this.beanAnnotatedByValue.get(key);
+                List<Pair<Field, Object>> fieldWithValues = new ArrayList<Pair<Field, Object>>(fieldWithBeans.size());
+                if (!isNullOrEmpty(fieldWithBeans)) {
+                    for (Pair<Field, Object> pair : fieldWithBeans) {
                         Field field = pair.getLeft();
                         Object beanInstance = pair.getRight();
-                        Object filedValue = convertTypeValue(currentValue, field.getType(), field.getGenericType());
+                        Object fieldValue = convertTypeValue(currentValue, field.getType(), field.getGenericType());
+                        fieldWithValues.add(Pair.of(field, fieldValue));
 
                         try {
-                            field.set(beanInstance, filedValue);
+                            field.set(beanInstance, fieldValue);
                         } catch (IllegalAccessException ignored) {
                             // 不可能发生
                         }
 
                         logger.warn("class: {}`s instance field: {} threshold is change to {}", beanInstance.getClass().getName(),
-                                field.getName(), filedValue);
+                                field.getName(), fieldValue);
                     }
+                    notifyCallback(fieldWithValues, fieldWithBeans.iterator().next().getRight());
                 } else {
                     logger.error("propertyKey: {} have not found relation bean, threshold: {}", key, currentValue);
                 }
+            }
+        }
+    }
+
+    // @since 1.4
+    private void notifyCallback(List<Pair<Field, Object>> fieldWithValues, Object target) {
+        if (target instanceof FieldChangedCallback) {
+            FieldChangedCallback callback = (FieldChangedCallback) target;
+            Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    callback.receiveConfigInfo(fieldWithValues);
+                }
+            };
+            if (callback.getExecutor() == null) {
+                runnable.run();
+            } else {
+                callback.getExecutor().execute(runnable);
             }
         }
     }

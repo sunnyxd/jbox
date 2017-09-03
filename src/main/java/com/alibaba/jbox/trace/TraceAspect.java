@@ -4,6 +4,9 @@ package com.alibaba.jbox.trace;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.google.common.base.Strings;
+import com.taobao.csp.sentinel.Entry;
+import com.taobao.csp.sentinel.SphU;
+import com.taobao.csp.sentinel.slots.block.BlockException;
 import com.taobao.eagleeye.EagleEye;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -20,6 +23,7 @@ import javax.validation.ValidatorFactory;
 import javax.validation.executable.ExecutableValidator;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Set;
@@ -27,8 +31,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * @author jifang
- * @version 1.3
+ * @author jifang.zjf@alibaba-inc.com
+ * @version 1.4
+ *          - 1.0: append 'traceId' to logger;
+ *          - 1.1: append 'method invoke cost time & param' to biz logger;
+ *          - 1.2: validate method param {@code com.alibaba.jbox.annotation.NotNull}, {@code com.alibaba.jbox.annotation.NotEmpty};
+ *          - 1.3: replace validator instance to hibernate-validator;
+ *          - 1.4: add sentinel on invoked service interface.
  * @since 2016/11/25 上午11:53.
  */
 @Aspect
@@ -60,14 +69,20 @@ public class TraceAspect {
      */
     private volatile boolean param = true;
 
+    /**
+     * determine use sentinel for 'rate limit' ...
+     */
+    private volatile boolean sentinel = false;
+
     public TraceAspect() {
-        this(false, false, false);
+        this(false, false, false, false);
     }
 
-    public TraceAspect(boolean validator, boolean elapsed, boolean param) {
+    public TraceAspect(boolean validator, boolean elapsed, boolean param, boolean sentinel) {
         this.validator = validator;
         this.elapsed = elapsed;
         this.param = param;
+        this.sentinel = sentinel;
     }
 
     @Around("@annotation(com.alibaba.jbox.trace.Trace)")
@@ -77,6 +92,7 @@ public class TraceAspect {
          * @since 1.0: put traceId
          */
         MDC.put(TRACE_ID, EagleEye.getTraceId());
+        Entry entry = null;
         try {
             long start = System.currentTimeMillis();
             Method method = JboxUtils.getRealMethod(joinPoint);
@@ -87,6 +103,14 @@ public class TraceAspect {
              */
             if (validator) {
                 validateArguments(joinPoint.getTarget(), method, args);
+            }
+
+            /*
+             * @since 1.4 sentinel
+             */
+            if (sentinel &&
+                    !(Modifier.isPrivate(method.getModifiers()) || Modifier.isProtected(method.getModifiers()))) {
+                entry = SphU.entry(method);
             }
 
             Object result = joinPoint.proceed(args);
@@ -106,6 +130,11 @@ public class TraceAspect {
             }
 
             return result;
+        } catch (BlockException e) {
+            rootLogger.warn("method: [{}] invoke was blocked by sentinel",
+                    ((MethodSignature) joinPoint.getSignature()).getMethod().getName(),
+                    e);
+            throw e;
         } catch (Throwable e) {
             rootLogger.error("method: [{}] invoke failed",
                     ((MethodSignature) joinPoint.getSignature()).getMethod().getName(),
@@ -114,6 +143,9 @@ public class TraceAspect {
             throw e;
         } finally {
             MDC.remove(TRACE_ID);
+            if (entry != null) {
+                entry.exit();
+            }
         }
     }
 
@@ -252,5 +284,13 @@ public class TraceAspect {
 
     public void setParam(boolean param) {
         this.param = param;
+    }
+
+    public boolean isSentinel() {
+        return sentinel;
+    }
+
+    public void setSentinel(boolean sentinel) {
+        this.sentinel = sentinel;
     }
 }
