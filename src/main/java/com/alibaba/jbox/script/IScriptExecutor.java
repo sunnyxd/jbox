@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.1
- * @since jbox-1.3.3 (16/10/17 下午4:11).
+ * @since jbox-1.4.0 (16/10/17 下午4:11).
  */
 public interface IScriptExecutor {
 

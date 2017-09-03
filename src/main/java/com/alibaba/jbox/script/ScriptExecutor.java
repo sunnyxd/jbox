@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.1
- * @since jbox-1.3.3 (16/10/9 下午6:05).
+ * @since jbox-1.4.0 (16/10/9 下午6:05).
  */
 @Service("com.alibaba.jbox.script.ScriptService")
 public class ScriptExecutor extends AbstractApplicationContextAware
