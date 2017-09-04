@@ -4,6 +4,9 @@ package com.alibaba.jbox.trace;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.google.common.base.Strings;
+import com.taobao.csp.sentinel.Entry;
+import com.taobao.csp.sentinel.SphU;
+import com.taobao.csp.sentinel.slots.block.BlockException;
 import com.taobao.eagleeye.EagleEye;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -20,6 +23,7 @@ import javax.validation.ValidatorFactory;
 import javax.validation.executable.ExecutableValidator;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Set;
@@ -104,7 +108,7 @@ public class TraceAspect {
              * @since 1.4 sentinel
              */
             if (sentinel) {
-                SentinelHolder.getInstance().entry(method);
+                entry(method);
             }
 
             Object result = joinPoint.proceed(args);
@@ -125,7 +129,8 @@ public class TraceAspect {
 
             return result;
         } catch (Throwable e) {
-            rootLogger.error("method: [{}] invoke failed",
+            rootLogger.error("method: [{}.{}] invoke failed",
+                    joinPoint.getTarget().getClass().getName(),
                     ((MethodSignature) joinPoint.getSignature()).getMethod().getName(),
                     e);
             throw e;
@@ -244,6 +249,27 @@ public class TraceAspect {
                     .append("\n");
 
             throw new ValidationException(msgBuilder.toString());
+        }
+    }
+
+    /*** ************************* ***/
+    /***  add sentinel @since 1.4  ***/
+    /*** ************************* ***/
+    private void entry(Method method) throws BlockException {
+        Entry entry = null;
+        try {
+            if (!Modifier.isPrivate(method.getModifiers()) && !Modifier.isProtected(method.getModifiers())) {
+                entry = SphU.entry(method);
+            }
+        } catch (BlockException e) {
+            rootLogger.warn("method: [{}.{}] invoke was blocked by sentinel.",
+                    method.getDeclaringClass().getName(),
+                    method.getName());
+            throw e;
+        } finally {
+            if (entry != null) {
+                entry.exit();
+            }
         }
     }
 

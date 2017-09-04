@@ -49,6 +49,8 @@ public class ScriptExecutor extends AbstractApplicationContextAware
 
     private String location = "filter.properties";
 
+    private int waitTimeout = 1000 * 30;
+
     @Override
     public Map<String, String> contexts() throws ScriptException {
         try {
@@ -131,7 +133,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
             beanDefinition.getPropertyValues().addPropertyValue("serviceName", IScriptExecutor.class.getSimpleName());
             beanDefinition.getPropertyValues().addPropertyValue("serviceVersion", version);
             beanDefinition.getPropertyValues().addPropertyValue("target", this);
-            beanDefinition.getPropertyValues().addPropertyValue("clientTimeout", 1000 * 60);
+            beanDefinition.getPropertyValues().addPropertyValue("clientTimeout", waitTimeout);
 
             registry.registerBeanDefinition(HSF_SERVICE_NAME, beanDefinition);
         }
@@ -155,5 +157,9 @@ public class ScriptExecutor extends AbstractApplicationContextAware
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public void setWaitTimeout(int waitTimeout) {
+        this.waitTimeout = waitTimeout;
     }
 }
