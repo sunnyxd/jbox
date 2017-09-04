@@ -52,7 +52,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
     private int waitTimeout = 1000 * 30;
 
     @Override
-    public Map<String, String> contexts() throws ScriptException {
+    public Map<String, String> context() throws ScriptException {
         try {
             Properties properties = new Properties();
             properties.load(this.getClass().getClassLoader().getResourceAsStream(location));

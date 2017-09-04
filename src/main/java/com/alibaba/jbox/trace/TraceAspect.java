@@ -243,7 +243,7 @@ public class TraceAspect {
                         .append(violation.getMessage())
                         .append("\n");
             }
-            msgBuilder.append("original parameters: ")
+            msgBuilder.append("your request params: ")
                     .append(JSONObject.toJSONString(args))
                     .append("\n");
 
@@ -261,11 +261,17 @@ public class TraceAspect {
                 entry = SphU.entry(method);
             }
         } catch (BlockException e) {
-            String msg = String.format("method: [%s.%s] invoke was blocked by sentinel.",
-                    method.getDeclaringClass().getName(),
-                    method.getName());
-            rootLogger.warn(msg, e);
+            String[] split = method.toGenericString().split(" ");
+            StringBuilder msgBuilder = new StringBuilder(128);
+            msgBuilder.append("method: [ ");
+            for (int i = 2; i < split.length; ++i) {
+                msgBuilder
+                        .append(split[i])
+                        .append(" ");
+            }
+            String msg = msgBuilder.append("] invoke was blocked by sentinel.").toString();
 
+            rootLogger.warn(msg, e);
             throw new TraceException(msg, e);
         } finally {
             if (entry != null) {

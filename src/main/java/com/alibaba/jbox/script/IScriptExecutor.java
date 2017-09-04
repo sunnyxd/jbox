@@ -11,7 +11,7 @@ import java.util.Map;
  */
 public interface IScriptExecutor {
 
-    Map<String, String> contexts() throws ScriptException;
+    Map<String, String> context() throws ScriptException;
 
     Object execute(String script, ScriptType type, String salt) throws ScriptException;
 }
