@@ -11,7 +11,6 @@ import com.taobao.eagleeye.EagleEye;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -94,21 +93,21 @@ public class TraceAspect {
         MDC.put(TRACE_ID, EagleEye.getTraceId());
         try {
             long start = System.currentTimeMillis();
-            Method method = JboxUtils.getRealMethod(joinPoint);
+            Method implMethod = JboxUtils.getImplMethod(joinPoint);
             Object[] args = joinPoint.getArgs();
 
             /*
              * @since 1.2 validate arguments
              */
             if (validator) {
-                validateArguments(joinPoint.getTarget(), method, args);
+                validateArguments(joinPoint.getTarget(), implMethod, args);
             }
 
             /*
              * @since 1.4 sentinel
              */
             if (sentinel) {
-                entry(method);
+                entry(JboxUtils.getAbstractMethod(joinPoint));
             }
 
             Object result = joinPoint.proceed(args);
@@ -117,12 +116,12 @@ public class TraceAspect {
              * @since 1.1 logger invoke elapsed time & parameters
              */
             Trace trace;
-            if (elapsed && (trace = method.getAnnotation(Trace.class)) != null) {
+            if (elapsed && (trace = implMethod.getAnnotation(Trace.class)) != null) {
                 long costTime = System.currentTimeMillis() - start;
                 if (isNeedLogger(trace, costTime)) {
-                    String logContent = buildLogContent(method, costTime, trace, args);
+                    String logContent = buildLogContent(implMethod, costTime, trace, args);
 
-                    logBiz(logContent, method, joinPoint, trace);
+                    logBiz(logContent, implMethod, joinPoint, trace);
                     logTrace(logContent);
                 }
             }
@@ -131,7 +130,7 @@ public class TraceAspect {
         } catch (Throwable e) {
             rootLogger.error("method: [{}.{}] invoke failed",
                     joinPoint.getTarget().getClass().getName(),
-                    ((MethodSignature) joinPoint.getSignature()).getMethod().getName(),
+                    JboxUtils.getAbstractMethod(joinPoint).getName(),
                     e);
             throw e;
         } finally {
@@ -255,17 +254,19 @@ public class TraceAspect {
     /*** ************************* ***/
     /***  add sentinel @since 1.4  ***/
     /*** ************************* ***/
-    private void entry(Method method) throws BlockException {
+    private void entry(Method method) throws TraceException {
         Entry entry = null;
         try {
             if (!Modifier.isPrivate(method.getModifiers()) && !Modifier.isProtected(method.getModifiers())) {
                 entry = SphU.entry(method);
             }
         } catch (BlockException e) {
-            rootLogger.warn("method: [{}.{}] invoke was blocked by sentinel.",
+            String msg = String.format("method: [%s.%s] invoke was blocked by sentinel.",
                     method.getDeclaringClass().getName(),
                     method.getName());
-            throw e;
+            rootLogger.warn(msg, e);
+
+            throw new TraceException(msg, e);
         } finally {
             if (entry != null) {
                 entry.exit();

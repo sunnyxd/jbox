@@ -48,7 +48,13 @@ public class JboxUtils {
         return innerObject;
     }
 
-    public static Method getRealMethod(JoinPoint pjp) throws NoSuchMethodException {
+    public static Method getAbstractMethod(JoinPoint pjp) {
+        MethodSignature ms = (MethodSignature) pjp.getSignature();
+        Method method = ms.getMethod();
+        return method;
+    }
+
+    public static Method getImplMethod(JoinPoint pjp) throws NoSuchMethodException {
         MethodSignature ms = (MethodSignature) pjp.getSignature();
         Method method = ms.getMethod();
         if (method.getDeclaringClass().isInterface()) {
