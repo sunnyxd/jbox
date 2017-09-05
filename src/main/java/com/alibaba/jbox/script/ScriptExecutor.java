@@ -93,7 +93,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
                 ScriptEngine engine = manager.getEngineByName(type.getValue());
                 Object result = engine.eval(script);
 
-                logger.warn("script invoke success, result: {}", result);
+                logger.warn("script: {} invoke success, result: {}", script, result);
 
                 return result;
             }
@@ -136,6 +136,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
             beanDefinition.getPropertyValues().addPropertyValue("clientTimeout", waitTimeout);
 
             registry.registerBeanDefinition(HSF_SERVICE_NAME, beanDefinition);
+            logger.warn("service [{}] register success.", HSF_SERVICE_NAME);
         }
     }
 

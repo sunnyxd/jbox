@@ -31,12 +31,14 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.4
+ * @version 1.6
  *          - 1.0: append 'traceId' to logger;
  *          - 1.1: append 'method invoke cost time & param' to biz logger;
  *          - 1.2: validate method param {@code com.alibaba.jbox.annotation.NotNull}, {@code com.alibaba.jbox.annotation.NotEmpty};
  *          - 1.3: replace validator instance to hibernate-validator;
- *          - 1.4: add sentinel on invoked service interface.
+ *          - 1.4: add sentinel on invoked service interface;
+ *          - 1.5: append method invoke result on logger content;
+ *          - 1.6: support use TraceAspect not with {@code com.alibaba.jbox.trace.TraceAspect} annotation.
  * @since 2016/11/25 上午11:53.
  */
 @Aspect
@@ -69,20 +71,20 @@ public class TraceAspect {
     private volatile boolean param = true;
 
     /**
+     * determine the 'log method invoke cost time' append method invoke result or not.
+     */
+    private volatile boolean result = true;
+
+    /**
      * determine use sentinel for 'rate limit' ...
      */
     private volatile boolean sentinel = false;
 
-    public TraceAspect() {
-        this(false, false, false, false);
-    }
-
-    public TraceAspect(boolean validator, boolean elapsed, boolean param, boolean sentinel) {
-        this.validator = validator;
-        this.elapsed = elapsed;
-        this.param = param;
-        this.sentinel = sentinel;
-    }
+    /**
+     * use for replace @Trace when not use Trace annotation.
+     * methodKey:{className:MethodName} -> TraceConfig
+     */
+    private ConcurrentMap<String, TraceConfig> traceConfigs = new ConcurrentHashMap<>();
 
     @Around("@annotation(com.alibaba.jbox.trace.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {
@@ -93,7 +95,10 @@ public class TraceAspect {
         MDC.put(TRACE_ID, EagleEye.getTraceId());
         try {
             long start = System.currentTimeMillis();
+            Method abstractMethod = JboxUtils.getAbstractMethod(joinPoint);
             Method implMethod = JboxUtils.getImplMethod(joinPoint);
+            String methodKey = String.format("%s:%s", abstractMethod.getDeclaringClass().getName(), abstractMethod.getName());
+
             Object[] args = joinPoint.getArgs();
 
             /*
@@ -107,7 +112,7 @@ public class TraceAspect {
              * @since 1.4 sentinel
              */
             if (sentinel) {
-                entry(JboxUtils.getAbstractMethod(joinPoint));
+                entry(abstractMethod);
             }
 
             Object result = joinPoint.proceed(args);
@@ -115,22 +120,22 @@ public class TraceAspect {
             /*
              * @since 1.1 logger invoke elapsed time & parameters
              */
-            Trace trace;
-            if (elapsed && (trace = implMethod.getAnnotation(Trace.class)) != null) {
+            Trace trace = implMethod.getAnnotation(Trace.class);
+            Object[] config = getConfig(methodKey, trace);
+            if (elapsed) {
                 long costTime = System.currentTimeMillis() - start;
-                if (isNeedLogger(trace, costTime)) {
-                    String logContent = buildLogContent(implMethod, costTime, trace, args);
+                if (isNeedLogger((Long) config[0], costTime)) {
+                    String logContent = buildLogContent(abstractMethod, costTime, args, result);
 
-                    logBiz(logContent, implMethod, joinPoint, trace);
+                    logBiz(logContent, implMethod, joinPoint, (String) config[1]);
                     logTrace(logContent);
                 }
             }
 
             return result;
         } catch (Throwable e) {
-            rootLogger.error("method: [{}.{}] invoke failed",
-                    joinPoint.getTarget().getClass().getName(),
-                    JboxUtils.getAbstractMethod(joinPoint).getName(),
+            rootLogger.error("method: [{}] invoke failed",
+                    getMethodName(JboxUtils.getAbstractMethod(joinPoint)),
                     e);
             throw e;
         } finally {
@@ -138,29 +143,57 @@ public class TraceAspect {
         }
     }
 
+    private String getMethodName(Method abstractMethod) {
+        String[] split = abstractMethod.toGenericString().split(" ");
+        StringBuilder sb = new StringBuilder(128);
+        for (int i = 2; i < split.length; ++i) {
+            sb.append(split[i]).append(" ");
+        }
+        return sb.substring(0, sb.length() - 1);
+    }
+
+    // @since 1.6
+    private Object[] getConfig(String methodKey, Trace trace) {
+        long threshold;
+        String loggerName;
+        if (trace == null) {
+            TraceConfig config = this.traceConfigs.computeIfAbsent(methodKey, key -> new TraceConfig());
+            threshold = config.getThreshold();
+            loggerName = config.getLogger();
+        } else {
+            threshold = trace.threshold();
+            loggerName = trace.value();
+        }
+
+        return new Object[]{threshold, loggerName};
+    }
 
     /*** ******************************* ***/
     /***  append cost logger @since 1.1  ***/
     /*** ******************************* ***/
 
-    private boolean isNeedLogger(Trace trace, long costTime) {
-        return costTime > trace.threshold();
+    private boolean isNeedLogger(long threshold, long costTime) {
+        return costTime > threshold;
     }
 
-    private String buildLogContent(Method method, long costTime, Trace trace, Object[] args) {
+    private String buildLogContent(Method abstractMethod, long costTime, Object[] args, Object resultObj) {
         StringBuilder logBuilder = new StringBuilder(120);
         logBuilder
                 .append("method: [")
-                .append(method.getDeclaringClass().getName())
-                .append('.')
-                .append(method.getName())
+                .append(getMethodName(abstractMethod))
                 .append("] invoke total cost [")
                 .append(costTime)
                 .append("]ms");
 
         if (param) {
             logBuilder.append(", params:")
-                    .append(Arrays.toString(args))
+                    .append(Arrays.toString(args));
+        }
+
+        // @since 1.5
+        if (result) {
+            logBuilder.append(", result: ")
+                    .append(JSONObject.toJSONString(resultObj))
                     .append(".");
         } else {
             logBuilder.append('.');
@@ -169,15 +202,15 @@ public class TraceAspect {
         return logBuilder.toString();
     }
 
-    private void logBiz(String logContent, Method method, Object target, Trace trace) {
+    private void logBiz(String logContent, Method method, Object target, String loggerName) {
         Class<?> clazz = method.getDeclaringClass();
         String methodName = MessageFormat.format("{0}.{1}", clazz.getName(), method.getName());
         Logger bizLogger = bizLoggers.computeIfAbsent(methodName, key -> {
             try {
-                if (Strings.isNullOrEmpty(trace.value())) {
+                if (Strings.isNullOrEmpty(loggerName)) {
                     return getDefaultBizLogger(clazz, target);
                 } else {
-                    return getNamedBizLogger(trace.value(), clazz, target);
+                    return getNamedBizLogger(loggerName, clazz, target);
                 }
             } catch (IllegalAccessException e) {
                 throw new TraceException(e);
@@ -254,22 +287,14 @@ public class TraceAspect {
     /*** ************************* ***/
     /***  add sentinel @since 1.4  ***/
     /*** ************************* ***/
-    private void entry(Method method) throws TraceException {
+    private void entry(Method abstractMethod) throws TraceException {
         Entry entry = null;
         try {
-            if (!Modifier.isPrivate(method.getModifiers()) && !Modifier.isProtected(method.getModifiers())) {
-                entry = SphU.entry(method);
+            if (!Modifier.isPrivate(abstractMethod.getModifiers()) && !Modifier.isProtected(abstractMethod.getModifiers())) {
+                entry = SphU.entry(abstractMethod);
             }
         } catch (BlockException e) {
-            String[] split = method.toGenericString().split(" ");
-            StringBuilder msgBuilder = new StringBuilder(128);
-            msgBuilder.append("method: [ ");
-            for (int i = 2; i < split.length; ++i) {
-                msgBuilder
-                        .append(split[i])
-                        .append(" ");
-            }
-            String msg = msgBuilder.append("] invoke was blocked by sentinel.").toString();
+            String msg = "method: [" + getMethodName(abstractMethod) + "] invoke was blocked by sentinel.";
 
             rootLogger.warn(msg, e);
             throw new TraceException(msg, e);
@@ -304,11 +329,19 @@ public class TraceAspect {
         this.param = param;
     }
 
+    public void setResult(boolean result) {
+        this.result = result;
+    }
+
     public boolean isSentinel() {
         return sentinel;
     }
 
     public void setSentinel(boolean sentinel) {
         this.sentinel = sentinel;
+    }
+
+    public void setTraceConfigs(ConcurrentMap<String, TraceConfig> traceConfigs) {
+        this.traceConfigs = traceConfigs;
     }
 }
