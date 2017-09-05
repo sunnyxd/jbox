@@ -56,6 +56,11 @@ public class TraceAspect {
     private static final ConcurrentMap<String, Logger> bizLoggers = new ConcurrentHashMap<>();
 
     /**
+     * used when method's implementation class has non default logger instance.
+     */
+    private Logger defaultBizLogger;
+
+    /**
      * determine 'validate arguments' use or not.
      */
     private volatile boolean validator = false;
@@ -208,7 +213,7 @@ public class TraceAspect {
         Logger bizLogger = bizLoggers.computeIfAbsent(methodName, key -> {
             try {
                 if (Strings.isNullOrEmpty(loggerName)) {
-                    return getDefaultBizLogger(clazz, target);
+                    return defaultBizLogger == null ? getDefaultBizLogger(clazz, target) : defaultBizLogger;
                 } else {
                     return getNamedBizLogger(loggerName, clazz, target);
                 }
@@ -343,5 +348,13 @@ public class TraceAspect {
 
     public void setTraceConfigs(ConcurrentMap<String, TraceConfig> traceConfigs) {
         this.traceConfigs = traceConfigs;
+    }
+
+    public void setBizLoggerName(String bizLoggerName) {
+        this.defaultBizLogger = LoggerFactory.getLogger(bizLoggerName);
+    }
+
+    public void setBizLogger(Logger bizLogger) {
+        this.defaultBizLogger = bizLogger;
     }
 }
