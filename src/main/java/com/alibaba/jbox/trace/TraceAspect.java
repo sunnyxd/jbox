@@ -149,12 +149,7 @@ public class TraceAspect {
     }
 
     private String getMethodName(Method abstractMethod) {
-        String[] split = abstractMethod.toGenericString().split(" ");
-        StringBuilder sb = new StringBuilder(128);
-        for (int i = 2; i < split.length; ++i) {
-            sb.append(split[i]).append(" ");
-        }
-        return sb.substring(0, sb.length() - 1);
+        return abstractMethod.toGenericString();
     }
 
     // @since 1.6
