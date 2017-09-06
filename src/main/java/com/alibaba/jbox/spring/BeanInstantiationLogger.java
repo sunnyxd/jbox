@@ -32,15 +32,9 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
 
     private static final ConcurrentMap<String, ThreadLocal<Long>> threadLocals = new ConcurrentHashMap<>();
 
-    private int top;
+    private volatile int top = DEFAULT_TOP;
 
-    public BeanInstantiationLogger() {
-        this(DEFAULT_TOP);
-    }
-
-    public BeanInstantiationLogger(int top) {
-        this.top = top;
-    }
+    private volatile boolean detail = false;
 
     @Override
     public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
@@ -73,8 +67,10 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
             totalCost.addAndGet(cost);
             queue.offer(Triple.of(beanName, beanType, cost));
 
-            String message = String.format(" -> bean:'%s' of type [%s] init cost: [%s] ms", beanName, beanType, cost);
-            logger.info(message);
+            if (detail) {
+                String message = String.format(" -> bean:'%s' of type [%s] init cost: [%s] ms", beanName, beanType, cost);
+                logger.info(message);
+            }
             return null;
         });
 
@@ -93,7 +89,7 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
                     .append(totalCost.get())
                     .append("] ms, top ")
                     .append(top)
-                    .append(" : \n");
+                    .append(": \n");
 
 
             for (int i = 1; i <= top; ++i) {
@@ -116,11 +112,11 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
         }
     }
 
-    public int getTop() {
-        return top;
-    }
-
     public void setTop(int top) {
         this.top = top;
+    }
+
+    public void setDetail(boolean detail) {
+        this.detail = detail;
     }
 }
