@@ -99,7 +99,10 @@ public class TraceAspect {
         /*
          * @since 1.0: put traceId
          */
-        MDC.put(TRACE_ID, EagleEye.getTraceId());
+        String traceId = EagleEye.getTraceId();
+        if (!Strings.isNullOrEmpty(traceId)) {
+            MDC.put(TRACE_ID, traceId);
+        }
         try {
             long start = System.currentTimeMillis();
             Method abstractMethod = JboxUtils.getAbstractMethod(joinPoint);
@@ -146,7 +149,9 @@ public class TraceAspect {
                     e);
             throw e;
         } finally {
-            MDC.remove(TRACE_ID);
+            if (!Strings.isNullOrEmpty(traceId)) {
+                MDC.remove(TRACE_ID);
+            }
         }
     }
 
@@ -191,10 +196,7 @@ public class TraceAspect {
         // @since 1.5
         if (result) {
             logBuilder.append(", result: ")
-                    .append(JSONObject.toJSONString(resultObj))
-                    .append(".");
-        } else {
-            logBuilder.append('.');
+                    .append(JSONObject.toJSONString(resultObj));
         }
 
         return logBuilder.toString();
