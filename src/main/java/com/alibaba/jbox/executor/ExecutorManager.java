@@ -52,7 +52,7 @@ public class ExecutorManager implements LoggerInter {
                     threadFactory,
                     rejectHandler);
 
-            return (ExecutorService) createExecutorProxy(threadPoolExecutor, ExecutorService.class);
+            return createExecutorProxy(threadPoolExecutor, ExecutorService.class);
         });
     }
 
@@ -60,7 +60,7 @@ public class ExecutorManager implements LoggerInter {
     public static ExecutorService newCachedThreadPool(String group) {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newCachedThreadPool(new NamedThreadFactory(group));
-            return (ExecutorService) createExecutorProxy(executor, ExecutorService.class);
+            return createExecutorProxy(executor, ExecutorService.class);
         });
     }
 
@@ -68,7 +68,7 @@ public class ExecutorManager implements LoggerInter {
     public static ExecutorService newFixedThreadPool(String group, int poolSize) {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newFixedThreadPool(poolSize, new NamedThreadFactory(group));
-            return (ExecutorService) createExecutorProxy(executor, ExecutorService.class);
+            return createExecutorProxy(executor, ExecutorService.class);
         });
     }
 
@@ -78,7 +78,7 @@ public class ExecutorManager implements LoggerInter {
 
             ScheduledExecutorService executor = Executors.newScheduledThreadPool(corePoolSize, new NamedThreadFactory(group));
 
-            return (ScheduledExecutorService) createExecutorProxy(executor, ScheduledExecutorService.class);
+            return createExecutorProxy(executor, ScheduledExecutorService.class);
         });
     }
 
@@ -86,7 +86,7 @@ public class ExecutorManager implements LoggerInter {
     public static ExecutorService newSingleThreadExecutor(String group) {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory(group));
-            return (ExecutorService) createExecutorProxy(executor, ExecutorService.class);
+            return createExecutorProxy(executor, ExecutorService.class);
         });
     }
 
@@ -97,14 +97,18 @@ public class ExecutorManager implements LoggerInter {
 
             ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(group));
 
-            return (ScheduledExecutorService) createExecutorProxy(executor, ScheduledExecutorService.class);
+            return createExecutorProxy(executor, ScheduledExecutorService.class);
         });
     }
 
-    private static Object createExecutorProxy(Object executor, Class<?> type) {
-        return Proxy.newProxyInstance(ExecutorManager.class.getClassLoader(),
-                new Class[]{type},
-                new RunnableDecoratorInterceptor(executor));
+    private static <T> T createExecutorProxy(Object target, Class<T> interfaceType) {
+        return interfaceType.cast(
+                Proxy.newProxyInstance(
+                        interfaceType.getClass().getClassLoader(),
+                        new Class[]{interfaceType},
+                        new RunnableDecoratorInterceptor(target)
+                )
+        );
     }
 
     @PreDestroy
