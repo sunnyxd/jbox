@@ -29,6 +29,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.alibaba.jbox.utils.JboxUtils.getSimplifiedMethodName;
+
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.6
@@ -140,16 +142,12 @@ public class TraceAspect {
             return result;
         } catch (Throwable e) {
             rootLogger.error("method: [{}] invoke failed",
-                    getMethodName(JboxUtils.getAbstractMethod(joinPoint)),
+                    getSimplifiedMethodName(JboxUtils.getAbstractMethod(joinPoint)),
                     e);
             throw e;
         } finally {
             MDC.remove(TRACE_ID);
         }
-    }
-
-    private String getMethodName(Method abstractMethod) {
-        return abstractMethod.toGenericString();
     }
 
     // @since 1.6
@@ -180,7 +178,7 @@ public class TraceAspect {
         StringBuilder logBuilder = new StringBuilder(120);
         logBuilder
                 .append("method: [")
-                .append(getMethodName(abstractMethod))
+                .append(getSimplifiedMethodName(abstractMethod))
                 .append("] invoke total cost [")
                 .append(costTime)
                 .append("]ms");
@@ -294,7 +292,7 @@ public class TraceAspect {
                 entry = SphU.entry(abstractMethod);
             }
         } catch (BlockException e) {
-            String msg = "method: [" + getMethodName(abstractMethod) + "] invoke was blocked by sentinel.";
+            String msg = "method: [" + getSimplifiedMethodName(abstractMethod) + "] invoke was blocked by sentinel.";
 
             rootLogger.warn(msg, e);
             throw new TraceException(msg, e);

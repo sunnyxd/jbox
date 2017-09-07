@@ -15,6 +15,8 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
 /**
@@ -26,6 +28,8 @@ public class JboxUtils {
     private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox");
 
     public static final Object EMPTY = new Object();
+
+    private static final ConcurrentMap<Method, String> simplifiedNameMap = new ConcurrentHashMap<>();
 
     public static Object getFieldValue(@NonNull Object target, @NonNull String filedName) {
         Field field = ReflectionUtils.findField(target.getClass(), filedName);
@@ -61,6 +65,49 @@ public class JboxUtils {
             method = pjp.getTarget().getClass().getDeclaredMethod(ms.getName(), method.getParameterTypes());
         }
         return method;
+    }
+
+    public static String getSimplifiedMethodName(Method method) {
+        return simplifiedNameMap.computeIfAbsent(method, (m) -> {
+            try {
+                StringBuilder sb = new StringBuilder();
+
+                specificToStringHeader(method, sb);
+
+                sb.append('(');
+                separateWithCommas(method.getParameterTypes(), sb);
+                sb.append(')');
+                if (method.getExceptionTypes().length > 0) {
+                    sb.append(" throws ");
+                    separateWithCommas(method.getExceptionTypes(), sb);
+                }
+                return sb.toString();
+            } catch (Exception e) {
+                return "<" + e + ">";
+            }
+        });
+    }
+
+    private static void specificToStringHeader(Method method, StringBuilder sb) {
+        sb.append(trimName(method.getReturnType().getTypeName())).append(' ');
+        sb.append(method.getDeclaringClass().getTypeName()).append(':');
+        sb.append(method.getName());
+    }
+
+    private static void separateWithCommas(Class<?>[] types, StringBuilder sb) {
+        for (int j = 0; j < types.length; j++) {
+            sb.append(trimName(types[j].getTypeName()));
+            if (j < (types.length - 1))
+                sb.append(",");
+        }
+    }
+
+    private static String trimName(String name) {
+        int index = name.lastIndexOf(".");
+        if (index != -1) {
+            name = name.substring(index + 1);
+        }
+        return name;
     }
 
     public static String getStackTrace() {
