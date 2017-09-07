@@ -221,7 +221,7 @@ public class TraceAspect {
     }
 
     private void logTrace(String logContent) {
-        traceLogger.warn(logContent);
+        traceLogger.info(logContent);
     }
 
     private Logger getDefaultBizLogger(Class<?> clazz, Object target) throws IllegalAccessException {
