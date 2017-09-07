@@ -115,7 +115,7 @@ public class JboxUtils {
         if (stackTrace != null && stackTrace.length > 2) {
             StringBuilder sb = new StringBuilder("current thread [")
                     .append(Thread.currentThread().getName())
-                    .append("]'s stack trace: ");
+                    .append("] : ");
 
             for (int i = 2 /*trim Thread.getStackTrace() & JboxUtils.getStackTrace() */; i < stackTrace.length; ++i) {
                 sb.append("\n\t").append(stackTrace[i]);
