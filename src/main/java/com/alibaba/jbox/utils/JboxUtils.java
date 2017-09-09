@@ -6,6 +6,7 @@ import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Field;
@@ -158,4 +159,14 @@ public class JboxUtils {
 
         return serverIp;
     };
+
+    public static String getUsableBeanName(String initBeanName, BeanDefinitionRegistry registry) {
+        String beanName;
+        int index = 0;
+        do {
+            beanName = initBeanName + "#" + index++;
+        } while (registry.isBeanNameInUse(beanName));
+
+        return beanName;
+    }
 }

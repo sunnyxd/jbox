@@ -2,6 +2,7 @@ package com.alibaba.jbox.executor;
 
 import com.alibaba.jbox.scheduler.ScheduleTask;
 import com.alibaba.jbox.scheduler.TaskScheduler;
+import com.alibaba.jbox.spring.AbstractApplicationContextAware;
 import com.alibaba.jbox.stream.StreamForker;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.alibaba.jbox.utils.ProxyUtil;
@@ -10,8 +11,6 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
@@ -31,6 +30,7 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.alibaba.jbox.utils.JboxUtils.getUsableBeanName;
 import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SINGLETON;
 
 /**
@@ -38,8 +38,8 @@ import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SING
  * @version 1.4
  * @since 2017/8/22 15:32:00.
  */
-public class ExecutorMonitor implements ScheduleTask, LoggerInter,
-        BeanDefinitionRegistryPostProcessor, ApplicationContextAware {
+public class ExecutorMonitor extends AbstractApplicationContextAware
+        implements ScheduleTask, LoggerInter, BeanDefinitionRegistryPostProcessor {
 
     private static final String ASYNC_KEY = "async";
 
@@ -49,17 +49,7 @@ public class ExecutorMonitor implements ScheduleTask, LoggerInter,
 
     private static final ConcurrentMap<ExecutorService, ThreadPoolExecutor> executors = new ConcurrentHashMap<>();
 
-    private ApplicationContext applicationContext;
-
-    private long period;
-
-    public ExecutorMonitor() {
-        this(_1M_INTERVAL);
-    }
-
-    public ExecutorMonitor(long period) {
-        this.period = period;
-    }
+    private long period = _1M_INTERVAL;
 
     @Override
     public void invoke() throws Exception {
@@ -203,23 +193,12 @@ public class ExecutorMonitor implements ScheduleTask, LoggerInter,
         }
     }
 
-    private String getUsableBeanName(String initBeanName, BeanDefinitionRegistry registry) {
-        String beanName;
-        int index = 0;
-        do {
-            beanName = initBeanName + "#" + index++;
-        } while (registry.isBeanNameInUse(beanName));
-
-        return beanName;
-    }
-
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
         beanFactory.getBean(TaskScheduler.class).register(this);
     }
 
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = applicationContext;
+    public void setPeriod(long period) {
+        this.period = period;
     }
 }
