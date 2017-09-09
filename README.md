@@ -5,7 +5,7 @@
 - Log配置动态修改Configurator, 支持Logback, Log4j: `LogbackConfigurator`、`Log4jConfigurator`
 - 反射简化工具: `com.alibaba.jbox.reflections.Reflect`
 - 通用单机调度框架: `com.alibaba.jbox.scheduler.TaskScheduler`
-- Spring容器启动耗时监控: `com.alibaba.jbox.spring.BeanInstantiationLogger`
+- Spring容器启动耗时监控: `com.alibaba.jbox.spring.BeanInstantiationMonitor`
 - Spring `@Value` 注解适配Diamond配置, 支持动态修改属性配置: `com.alibaba.jbox.spring.DiamondPropertySourcesPlaceholder`
 - 非Spring托管Bean `@Resource`、`@Autowired`、`@Value`生效适配器: `com.alibaba.jbox.spring.SpringAutowiredAdaptor`
 - Stream多级利用: `com.alibaba.jbox.stream.StreamForker`

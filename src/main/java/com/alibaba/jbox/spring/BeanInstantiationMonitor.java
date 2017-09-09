@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * @version 1.1
  * @since 2017/7/15 07:03:00.
  */
-public class BeanInstantiationLogger implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
+public class BeanInstantiationMonitor implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
 
     private static final int DEFAULT_TOP = 10;
 
@@ -87,7 +87,12 @@ public class BeanInstantiationLogger implements InstantiationAwareBeanPostProces
                     .append(System.getProperty("project.name", "unnamed"))
                     .append("' context init total cost: [")
                     .append(totalCost.get())
-                    .append("] ms, top ")
+                    .append("] ms,");
+            if (!detail) {
+                msgBuilder.append(" set beanInstantiationMonitor.detail = true, monitor the cost detail,");
+            }
+
+            msgBuilder.append(" top ")
                     .append(top)
                     .append(": \n");
 

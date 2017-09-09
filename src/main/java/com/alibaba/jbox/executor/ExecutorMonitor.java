@@ -65,13 +65,15 @@ public class ExecutorMonitor implements ScheduleTask, LoggerInter,
     public void invoke() throws Exception {
 
         StringBuilder logBuilder = new StringBuilder(1000);
-        logBuilder.append("executors group as below:\n");
+        logBuilder.append("executors group [")
+                .append(ExecutorManager.executors.size())
+                .append("]:\n");
 
         ExecutorManager.executors.forEach((group, executorProxy) -> {
             ThreadPoolExecutor executor = getThreadPoolExecutor(executorProxy);
 
             BlockingQueue<Runnable> queue = executor.getQueue();
-            logBuilder.append(String.format("group:[%s], threads:[%s], active:[%d], task in queue:[%d], remain:[%d]\n",
+            logBuilder.append(String.format("\tgroup:[%s], threads:[%s], active:[%d], task in queue:[%d], remain:[%d]\n",
                     group,
                     executor.getPoolSize(),
                     executor.getActiveCount(),

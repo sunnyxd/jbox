@@ -8,10 +8,10 @@
 
     <groupId>com.alibaba.jbox</groupId>
     <artifactId>jbox</artifactId>
-    <version>1.4.1-SNAPSHOT</version>
+    <version>1.4.2-SNAPSHOT</version>
 
     <properties>
-        <guava.version>20.0</guava.version>
+        <guava.version>23.0</guava.version>
         <curator.version>2.11.1</curator.version>
         <zookeeper.version>3.4.9</zookeeper.version>
         <fastjson.version>1.2.7</fastjson.version>
