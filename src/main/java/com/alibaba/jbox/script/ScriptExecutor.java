@@ -20,6 +20,7 @@ import javax.script.SimpleBindings;
 import java.io.IOException;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -40,6 +41,8 @@ public class ScriptExecutor extends AbstractApplicationContextAware
     private static final String HSF_SERVICE_NAME = "com.alibaba.hsf.script.ScriptExecutor";
 
     private static final String HACKER_SALT = "@$^_^$@";
+
+    private Map<String, Object> contextNotInSpring = new HashMap<>();
 
     private Reference<Bindings> reference = new SoftReference<>(null);
 
@@ -106,6 +109,19 @@ public class ScriptExecutor extends AbstractApplicationContextAware
                 + (Strings.isNullOrEmpty(salt) ? "[empty]" : salt);
     }
 
+    @Override
+    public String reloadContext() throws ScriptException {
+        reference.clear();
+        loadScriptContext();
+        return "reload script executor context success !";
+    }
+
+    @Override
+    public void registerContext(String name, Object value) {
+        contextNotInSpring.put(name, value);
+    }
+
+
     private Bindings loadScriptContext() {
 
         Bindings bindings;
@@ -116,6 +132,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
             for (String beanName : beanNames) {
                 bindings.put(beanName, applicationContext.getBean(beanName));
             }
+            bindings.putAll(contextNotInSpring);
 
             reference = new SoftReference<>(bindings);
         }
