@@ -27,6 +27,8 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import static com.alibaba.jbox.script.ScriptType.Python;
+
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.1
@@ -90,11 +92,16 @@ public class ScriptExecutor extends AbstractApplicationContextAware
     public Object execute(String script, ScriptType type, String salt) throws ScriptException {
         try {
             if (HACKER_SALT.equals(salt) || Objects.equals(salt, this.salt)) {
-                ScriptEngineManager manager = new ScriptEngineManager();
-                manager.setBindings(loadScriptContext());
+                Object result;
+                if (Python.equals(type)) {
+                    result = PythonScriptSupport.invokePythonScript(loadScriptContext(), script);
+                } else {
+                    ScriptEngineManager manager = new ScriptEngineManager();
+                    manager.setBindings(loadScriptContext());
 
-                ScriptEngine engine = manager.getEngineByName(type.getValue());
-                Object result = engine.eval(script);
+                    ScriptEngine engine = manager.getEngineByName(type.getValue());
+                    result = engine.eval(script);
+                }
 
                 logger.warn("script: {} invoke success, result: {}", script, result);
 

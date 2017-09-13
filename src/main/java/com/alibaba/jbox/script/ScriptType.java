@@ -9,7 +9,9 @@ public enum ScriptType {
 
     Groovy("Groovy"),
 
-    JavaScript("JavaScript");
+    JavaScript("JavaScript"),
+
+    Python("Python");
 
     ScriptType(String type) {
         this.type = type;

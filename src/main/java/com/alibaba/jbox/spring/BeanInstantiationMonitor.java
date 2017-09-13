@@ -89,7 +89,7 @@ public class BeanInstantiationMonitor implements InstantiationAwareBeanPostProce
                     .append(totalCost.get())
                     .append("] ms,");
             if (!detail) {
-                msgBuilder.append(" set beanInstantiationMonitor.detail = true, monitor the cost detail,");
+                msgBuilder.append(" set 'BeanInstantiationMonitor.detail = true', show bean init cost detail,");
             }
 
             msgBuilder.append(" top ")
