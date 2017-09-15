@@ -64,7 +64,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
 
             Bindings bindings = loadScriptContext();
             Map<String, String> contexts = new LinkedHashMap<>();
-            contexts.put("<bean name>", "<bean type>");
+            contexts.put("#bean name#", "#bean type#");
 
             return bindings.entrySet()
                     .stream()

@@ -20,8 +20,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -47,8 +45,6 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
     private static final String CALLABLE_KEY = "callable";
 
-    private static final ConcurrentMap<ExecutorService, ThreadPoolExecutor> executors = new ConcurrentHashMap<>();
-
     private long period = _1M_INTERVAL;
 
     @Override
@@ -63,10 +59,12 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             ThreadPoolExecutor executor = getThreadPoolExecutor(executorProxy);
 
             BlockingQueue<Runnable> queue = executor.getQueue();
-            logBuilder.append(String.format("\tgroup:[%s], threads:[%s], active:[%d], task in queue:[%d], remain:[%d]\n",
+            logBuilder.append(String.format("\tgroup:[%s], pool:[%s], active:[%d], core pool:[%d], max pool:[%d], task in queue:[%d], remain:[%d]\n",
                     group,
                     executor.getPoolSize(),
                     executor.getActiveCount(),
+                    executor.getCorePoolSize(),
+                    executor.getMaximumPoolSize(),
                     queue.size(),
                     queue.remainingCapacity()));
 
@@ -102,23 +100,20 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
      * @since 1.1
      */
     private ThreadPoolExecutor getThreadPoolExecutor(ExecutorService executorProxy) {
-        return executors.computeIfAbsent(executorProxy, (proxy) -> {
+        ThreadPoolExecutor executor = null;
 
-            ThreadPoolExecutor executor = null;
-
-            if (proxy instanceof ThreadPoolExecutor) {
-                executor = (ThreadPoolExecutor) proxy;
-            } else if (Proxy.isProxyClass(proxy.getClass())) {
-                Object target = ProxyUtil.getProxyTarget(proxy);
-                if (target instanceof ThreadPoolExecutor) {
-                    executor = (ThreadPoolExecutor) target;
-                } else {
-                    executor = (ThreadPoolExecutor) JboxUtils.getFieldValue(target, "e");
-                }
+        if (executorProxy instanceof ThreadPoolExecutor) {
+            executor = (ThreadPoolExecutor) executorProxy;
+        } else if (Proxy.isProxyClass(executorProxy.getClass())) {
+            Object target = ProxyUtil.getProxyTarget(executorProxy);
+            if (target instanceof ThreadPoolExecutor) {
+                executor = (ThreadPoolExecutor) target;
+            } else {
+                executor = (ThreadPoolExecutor) JboxUtils.getFieldValue(target, "e");
             }
+        }
 
-            return executor;
-        });
+        return executor;
     }
 
     /**

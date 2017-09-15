@@ -1,5 +1,6 @@
 package com.alibaba.jbox.logger;
 
+/*
 import com.google.common.base.Strings;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.Logger;
@@ -12,6 +13,7 @@ import java.util.Map;
  * @author jifang.zjf
  * @since 2017/7/24 上午11:15.
  */
+/*
 public class Log4jConfigurator extends AbstractLoggerConfigurator {
 
     @Override
@@ -31,3 +33,4 @@ public class Log4jConfigurator extends AbstractLoggerConfigurator {
         });
     }
 }
+*/

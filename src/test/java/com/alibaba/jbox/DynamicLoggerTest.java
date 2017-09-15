@@ -1,5 +1,6 @@
 package com.alibaba.jbox;
 
+/*
 import com.alibaba.jbox.logger.AbstractLoggerConfigurator;
 import com.alibaba.jbox.logger.Log4jConfigurator;
 import org.junit.Test;
@@ -11,6 +12,7 @@ import org.slf4j.MDC;
  * @author jifang.zjf
  * @since 2017/7/23 下午7:22.
  */
+/*
 public class DynamicLoggerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(DynamicLoggerTest.class);
@@ -31,3 +33,4 @@ public class DynamicLoggerTest {
         }
     }
 }
+*/

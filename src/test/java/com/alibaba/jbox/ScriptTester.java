@@ -1,8 +1,11 @@
 package com.alibaba.jbox;
 
+import com.alibaba.jbox.script.ScriptType;
 import com.taobao.hsf.app.api.util.HSFApiConsumerBean;
 import com.taobao.hsf.model.metadata.MethodSpecial;
 import com.taobao.hsf.remoting.service.GenericService;
+import com.taobao.rdb.factory.RClientFactory;
+import com.taobao.rdb.smart.RClientManager;
 import org.junit.Test;
 import org.python.core.PyObject;
 import org.python.util.PythonInterpreter;
@@ -13,6 +16,13 @@ import org.python.util.PythonInterpreter;
  * @since 2017/9/11 18:01:00.
  */
 public class ScriptTester {
+
+    @Test
+    public void init() {
+        RClientManager rclientManager = RClientFactory.getClientManager();
+        String init = rclientManager.init("8ac10d18-dc80-4452-abc5-b72cbb3cc86b", "8ac10d18-dc80-4452-abc5-b72cbb3cc86b");
+        System.out.println(init);
+    }
 
     @Test
     public void testPython() {
@@ -26,7 +36,10 @@ public class ScriptTester {
     public void testCenterInvoke() throws Exception {
         HSFApiConsumerBean consumerBean = createConsumerBean("ScriptExecutor[businessinventorysolution]", "1.0.0.daily.inner");
         GenericService genericService = (GenericService) consumerBean.getObject();
-        Object result = genericService.$invoke("context", null, null);
+
+        String[] parameterTypes = new String[]{String.class.getName(), ScriptType.class.getName(), String.class.getName()};
+        Object[] args = new Object[]{"int a = 1; return a*11;", ScriptType.Groovy, "@$^_^$@"};
+        Object result = genericService.$invoke("execute", parameterTypes, args);
         System.out.println(result);
     }
 
@@ -39,7 +52,7 @@ public class ScriptTester {
         consumerBean.setVersion(serviceVersion);
         MethodSpecial methodSpecial = new MethodSpecial();
         methodSpecial.setClientTimeout(3000);
-        methodSpecial.setMethodName("context");
+        methodSpecial.setMethodName("execute");
         consumerBean.setMethodSpecials(new MethodSpecial[]{methodSpecial});
         consumerBean.init(true);
         return consumerBean;

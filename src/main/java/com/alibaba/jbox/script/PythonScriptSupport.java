@@ -9,7 +9,7 @@ import javax.script.Bindings;
  * @version 1.0
  * @since 2017/9/13 11:09:00.
  */
-public class PythonScriptSupport {
+class PythonScriptSupport {
 
     /**
      * 由于Python解释器不会自动将脚本执行结果返回,
@@ -18,7 +18,7 @@ public class PythonScriptSupport {
      */
     private static final String SCRIPT_RESULT_KEY = "result";
 
-    public static Object invokePythonScript(Bindings context, String script) {
+    static Object invokePythonScript(Bindings context, String script) {
         PythonInterpreter interpreter = new PythonInterpreter();
         context.forEach(interpreter::set);
         interpreter.exec(script);

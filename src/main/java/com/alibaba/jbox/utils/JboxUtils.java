@@ -155,6 +155,7 @@ public class JboxUtils {
             }
         } catch (SocketException e) {
             logger.error("get local host ip error", e);
+            serverIp = "127.0.0.1";
         }
 
         return serverIp;

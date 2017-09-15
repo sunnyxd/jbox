@@ -1,5 +1,7 @@
 package com.alibaba.jbox.utils;
 
+import com.google.common.base.Preconditions;
+
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -26,6 +28,7 @@ public class DateUtils {
     }
 
     public static Date timeParse(String source) throws ParseException {
+        Preconditions.checkNotNull(source);
         return timeFormatterMap.get().parse(source);
     }
 
@@ -34,6 +37,7 @@ public class DateUtils {
     }
 
     public static Date dateParse(String source) throws ParseException {
+        Preconditions.checkNotNull(source);
         return dateFormatterMap.get().parse(source);
     }
 }
