@@ -36,7 +36,7 @@ public abstract class SpringAutowiredAdaptor {
 
                     Object property = DiamondPropertySourcesPlaceholder.getProperty(trimPrefixAndSuffix(value.value()));
                     if (property == null) {
-                        throw new RuntimeException("could not found the config " + value.value() + " threshold");
+                        throw new RuntimeException("could not found the config " + value.value() + " value");
                     }
                     beanValue = DiamondPropertySourcesPlaceholder.convertTypeValue((String) property, field.getType(), field.getGenericType());
                 } else if ((qualifier = field.getAnnotation(Qualifier.class)) != null) {

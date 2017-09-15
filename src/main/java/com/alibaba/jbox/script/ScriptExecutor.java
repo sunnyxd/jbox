@@ -103,7 +103,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
                     result = engine.eval(script);
                 }
 
-                logger.warn("script: {} invoke success, result: {}", script, result);
+                logger.warn("script: {{}} invoke success, result: {}", script, result);
 
                 return result;
             }

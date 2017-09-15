@@ -88,6 +88,6 @@ public abstract class AbstractZKFlood extends AbFloodExperiment {
         this.inValue = json.get(inKey());
         this.outValue = json.get(outKey());
 
-        FLOOD_LOGGER.info("update flood threshold, rate = {}%, in threshold = {}, out threshold = {}", this.rate, this.inValue, this.outValue);
+        FLOOD_LOGGER.info("update flood value, rate = {}%, in value = {}, out value = {}", this.rate, this.inValue, this.outValue);
     }
 }

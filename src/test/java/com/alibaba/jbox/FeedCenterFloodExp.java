@@ -26,7 +26,7 @@ public class FeedCenterFloodExp extends AbstractZKFlood {
             inCount += (in ? 1 : 0);
         }
 
-        System.out.println("in threshold count " + inCount + ", rate " + (100.0 * inCount / totalExpCount) + "%");
+        System.out.println("in value count " + inCount + ", rate " + (100.0 * inCount / totalExpCount) + "%");
     }
 
     @Override

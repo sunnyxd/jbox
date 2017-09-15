@@ -317,12 +317,12 @@ public class DiamondPropertySourcesPlaceholder
                             // 不可能发生
                         }
 
-                        logger.warn("class: {}`s instance field: {} threshold is change to {}", beanInstance.getClass().getName(),
+                        logger.warn("class: {}`s instance field: {} value is change to {}", beanInstance.getClass().getName(),
                                 field.getName(), fieldValue);
                     }
                     notifyCallback(fieldWithValues, fieldWithBeans.iterator().next().getRight());
                 } else {
-                    logger.error("propertyKey: {} have not found relation bean, threshold: {}", key, currentValue);
+                    logger.error("propertyKey: {} have not found relation bean, value: {}", key, currentValue);
                 }
             }
         }
@@ -385,7 +385,7 @@ public class DiamondPropertySourcesPlaceholder
         if (value.startsWith("${") && value.endsWith("}")) {
             return value.substring("${".length(), value.length() - 1);
         } else {
-            throw new PropertySourcesPlaceholderException("@Value annotation need \"${[config key]}\" config in the threshold() property");
+            throw new PropertySourcesPlaceholderException("@Value annotation need \"${[config key]}\" config in the value() property");
         }
     }
 
