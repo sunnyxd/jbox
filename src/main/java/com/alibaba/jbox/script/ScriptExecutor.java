@@ -1,22 +1,5 @@
 package com.alibaba.jbox.script;
 
-import com.ali.com.google.common.base.Strings;
-import com.alibaba.jbox.spring.AbstractApplicationContextAware;
-import com.taobao.hsf.app.spring.util.HSFSpringProviderBean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.stereotype.Service;
-
-import javax.script.Bindings;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-import javax.script.SimpleBindings;
 import java.io.IOException;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -26,6 +9,25 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
+
+import javax.script.Bindings;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+import javax.script.SimpleBindings;
+
+import com.alibaba.jbox.spring.AbstractApplicationContextAware;
+
+import com.google.common.base.Strings;
+import com.taobao.hsf.app.spring.util.HSFSpringProviderBean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.stereotype.Service;
 
 import static com.alibaba.jbox.script.ScriptType.Python;
 
@@ -70,12 +72,12 @@ public class ScriptExecutor extends AbstractApplicationContextAware
                     .stream()
                     .filter(entry -> {
                         String prop = properties.getProperty(entry.getKey());
-                        return prop == null || !prop.equals("name");
+                        return prop == null || !"name".equals(prop);
                     })
                     .filter(entry -> {
                         String className = entry.getValue().getClass().getName();
                         String prop = properties.getProperty(className);
-                        return prop == null || !prop.equals("type");
+                        return prop == null || !"type".equals(prop);
                     })
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
@@ -108,7 +110,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
                 return result;
             }
         } catch (Exception e) {
-            logger.error("script: {} invoke error", e);
+            logger.error("script: {{}} invoke error", script, e);
             throw new ScriptException(e);
         }
 

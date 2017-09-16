@@ -1,8 +1,25 @@
 package com.alibaba.jbox.spring;
 
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.utils.AopTargetUtils;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -26,22 +43,6 @@ import org.springframework.core.env.ConfigurablePropertyResolver;
 import org.springframework.core.io.Resource;
 import org.springframework.util.ReflectionUtils;
 import org.yaml.snakeyaml.Yaml;
-
-import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 
 /**
@@ -212,6 +213,7 @@ public class DiamondPropertySourcesPlaceholder
 
         @Override
         public void receiveConfigInfo(String configInfo) {
+            logger.info("received config: {}", configInfo);
             if (!StringUtils.equals(lastContent, configInfo)) {
                 lastContent = configInfo;
                 JSONObject propertyJson = JSONObject.parseObject(configInfo);
@@ -317,13 +319,15 @@ public class DiamondPropertySourcesPlaceholder
                             // 不可能发生
                         }
 
-                        logger.warn("class: {}`s instance field: {} value is change to {}", beanInstance.getClass().getName(),
+                        logger.warn("class: '{}' instance field: [{}] value is change to [{}]", beanInstance.getClass().getName(),
                                 field.getName(), fieldValue);
                     }
                     notifyCallback(fieldWithValues, fieldWithBeans.iterator().next().getRight());
                 } else {
-                    logger.error("propertyKey: {} have not found relation bean, value: {}", key, currentValue);
+                    logger.error("propertyKey: [{}] have not found relation bean, value: [{}]", key, currentValue);
                 }
+            } else {
+                logger.warn("key: [{}]'s value is equals current value [{}], don't need update", key, currentValue);
             }
         }
     }

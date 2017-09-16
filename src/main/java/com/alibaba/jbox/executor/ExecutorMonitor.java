@@ -1,18 +1,5 @@
 package com.alibaba.jbox.executor;
 
-import com.alibaba.jbox.scheduler.ScheduleTask;
-import com.alibaba.jbox.scheduler.TaskScheduler;
-import com.alibaba.jbox.spring.AbstractApplicationContextAware;
-import com.alibaba.jbox.stream.StreamForker;
-import com.alibaba.jbox.utils.JboxUtils;
-import com.alibaba.jbox.utils.ProxyUtil;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.util.ReflectionUtils;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.EnumSet;
@@ -27,6 +14,20 @@ import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import com.alibaba.jbox.scheduler.ScheduleTask;
+import com.alibaba.jbox.scheduler.TaskScheduler;
+import com.alibaba.jbox.spring.AbstractApplicationContextAware;
+import com.alibaba.jbox.stream.StreamForker;
+import com.alibaba.jbox.utils.JboxUtils;
+import com.alibaba.jbox.utils.ProxyUtil;
+
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.util.ReflectionUtils;
 
 import static com.alibaba.jbox.utils.JboxUtils.getUsableBeanName;
 import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SINGLETON;
@@ -131,7 +132,7 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             return (stringBuilder, object) -> {
                 Method taskInfoMethod = ReflectionUtils.findMethod(object.getClass(), "taskInfo");
                 ReflectionUtils.makeAccessible(taskInfoMethod);
-                stringBuilder.append(" -> ")
+                stringBuilder.append("\t -> ")
                         .append("task: ")
                         .append(ReflectionUtils.invokeMethod(taskInfoMethod, object))
                         .append(", obj: ")

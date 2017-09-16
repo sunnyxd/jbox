@@ -1,12 +1,13 @@
 package com.alibaba.jbox.logger;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.TypeReference;
-import com.taobao.diamond.client.Diamond;
-import com.taobao.diamond.manager.ManagerListenerAdapter;
-
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.TypeReference;
+
+import com.taobao.diamond.client.Diamond;
+import com.taobao.diamond.manager.ManagerListenerAdapter;
 
 /**
  * @author jifang.zjf
@@ -14,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public abstract class AbstractLoggerConfigurator {
 
-    private static final AtomicBoolean init = new AtomicBoolean(false);
+    private static final AtomicBoolean INIT = new AtomicBoolean(false);
 
     public AbstractLoggerConfigurator() {
         this("config", "properties");
@@ -25,7 +26,7 @@ public abstract class AbstractLoggerConfigurator {
 
             @Override
             public void receiveConfigInfo(String configInfo) {
-                if (!init.compareAndSet(false, true)) {
+                if (!INIT.compareAndSet(false, true)) {
                     Map<String, String> loggerConfigs = JSON.parseObject(configInfo, new TypeReference<Map<String, String>>() {
                     });
                     handleLoggerConfigs(loggerConfigs);
