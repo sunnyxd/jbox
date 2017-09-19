@@ -1,20 +1,16 @@
 package com.alibaba.jbox.executor.policy;
 
-import com.alibaba.jbox.executor.AsyncRunnable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.util.Objects;
 import java.util.concurrent.ThreadPoolExecutor;
+
+import com.alibaba.jbox.executor.AsyncRunnable;
+import com.alibaba.jbox.executor.ExecutorLoggerInter;
 
 /**
  * @author jifang
  * @since 2017/1/16 下午2:18.
  */
-public class CallerRunsPolicy extends ThreadPoolExecutor.CallerRunsPolicy {
-
-    private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox.executor");
-
-    private static final Logger monitorLogger = LoggerFactory.getLogger("executor-monitor");
+public class CallerRunsPolicy extends ThreadPoolExecutor.CallerRunsPolicy implements ExecutorLoggerInter {
 
     private String group;
 
@@ -26,15 +22,12 @@ public class CallerRunsPolicy extends ThreadPoolExecutor.CallerRunsPolicy {
     public void rejectedExecution(Runnable runnable, ThreadPoolExecutor executor) {
 
         if (runnable instanceof AsyncRunnable) {
-            String taskInfo = ((AsyncRunnable) runnable).taskInfo();
+            AsyncRunnable asyncRunnable = (AsyncRunnable)runnable;
+            String message = generatePolicyLoggerContent(group, this, executor.getQueue(), asyncRunnable.taskInfo(),
+                Objects.hashCode(asyncRunnable));
 
-            String msg = String.format("policy: [CallerRuns], task:[%s] execute reject, group:[%s] runnable queue remaining:[%s]",
-                    taskInfo,
-                    this.group,
-                    executor.getQueue().remainingCapacity());
-
-            logger.warn(msg);
-            monitorLogger.warn(msg);
+            logger.warn(message);
+            monitor.warn(message);
         }
 
         super.rejectedExecution(runnable, executor);

@@ -1,10 +1,9 @@
 package com.alibaba.jbox.utils;
 
-
-import com.alibaba.jbox.annotation.ThreadSafe;
-
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicLong;
+
+import com.alibaba.jbox.annotation.ThreadSafe;
 
 /**
  * 性能监控器: 监控qps & rt
@@ -24,8 +23,11 @@ public class Performer {
 
     private volatile long todayEndMillis;
 
-    public Performer() {
-        init();
+    private String taskInfo;
+
+    public Performer(String taskInfo) {
+        this.taskInfo = taskInfo;
+        reset();
     }
 
     public long invoked() {
@@ -58,7 +60,7 @@ public class Performer {
 
         // reset everyday
         if (curMillis > todayEndMillis) {
-            init();
+            reset();
         }
 
         return qps;
@@ -81,13 +83,13 @@ public class Performer {
         befCount = curCount;
 
         if (curMillis > todayEndMillis) {
-            init();
+            reset();
         }
 
         return rt;
     }
 
-    private void init() {
+    private void reset() {
         befMillis = System.currentTimeMillis();
         todayEndMillis = endMillisToday();
         befCount = 0;
@@ -102,5 +104,9 @@ public class Performer {
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTimeInMillis();
+    }
+
+    public String getTaskInfo() {
+        return taskInfo;
     }
 }

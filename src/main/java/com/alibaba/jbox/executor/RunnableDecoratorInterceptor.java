@@ -14,7 +14,7 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
 
     private Object target;
 
-    public RunnableDecoratorInterceptor(Object target) {
+    RunnableDecoratorInterceptor(Object target) {
         this.target = target;
     }
 
@@ -22,7 +22,7 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         // process param args
         if (isNeedProxy(method, args)) {
-            Runnable runnable = (Runnable) args[0];
+            Runnable runnable = (Runnable)args[0];
             RunnableDecorator decorator = new RunnableDecorator(runnable);
             args[0] = decorator;
         }
@@ -33,9 +33,10 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
     /**
      * proxy:
      * 1. ${@code void execute(Runnable command); }
-     * 2. ${@code Future<?> submit(Runnable task); }
+     * 2. ${@code Future<T> submit(Runnable task); }
      * 3. ${@code Future<T> submit(Runnable task, T result); }
-     * 4. ${@code ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit)}
+     * 4. ${@code ScheduledFuture<T> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit)}
+     * 5. ${@code ScheduledFuture<T> schedule(Runnable command, long delay, TimeUnit unit)}
      *
      * @param method
      * @param arguments
@@ -46,16 +47,16 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
         Class<?>[] pTypes = method.getParameterTypes();
 
         return needProxyMethods.contains(methodName)
-                && pTypes.length != 0
-                && Runnable.class.isAssignableFrom(pTypes[0])
-                && arguments[0] instanceof Runnable
-                && !(arguments[0] instanceof AsyncRunnable);
+            && pTypes.length != 0
+            && Runnable.class.isAssignableFrom(pTypes[0])
+            && arguments[0] instanceof Runnable
+            && !(arguments[0] instanceof AsyncRunnable);
     }
 
     private static final List<String> needProxyMethods = Arrays.asList(
-            "scheduleAtFixedRate",
-            "execute",
-            "submit",
-            "schedule"
+        "scheduleAtFixedRate",
+        "execute",
+        "submit",
+        "schedule"
     );
 }

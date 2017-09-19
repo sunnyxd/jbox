@@ -1,11 +1,22 @@
 package com.alibaba.jbox.executor;
 
-import com.alibaba.jbox.executor.policy.CallerRunsPolicy;
-import com.alibaba.jbox.scheduler.ScheduleTask;
+import java.lang.reflect.Proxy;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.PreDestroy;
-import java.lang.reflect.Proxy;
-import java.util.concurrent.*;
+
+import com.alibaba.jbox.executor.policy.CallerRunsPolicy;
+import com.alibaba.jbox.scheduler.ScheduleTask;
 
 /**
  * 线程池管理器(最优雅的方式是注册为一个Spring Bean):
@@ -27,7 +38,7 @@ import java.util.concurrent.*;
  * @version 1.2
  * @since 2017/1/16 14:15:00.
  */
-public class ExecutorManager implements LoggerInter {
+public class ExecutorManager implements ExecutorLoggerInter {
 
     static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
@@ -117,7 +128,7 @@ public class ExecutorManager implements LoggerInter {
                 .filter(entry -> !entry.getValue().isShutdown())
                 .forEach(entry -> {
                     entry.getValue().shutdown();
-                    monitorLogger.info("executor [{}] is shutdown", entry.getKey());
+                    monitor.info("executor [{}] is shutdown", entry.getKey());
                     logger.info("executor [{}] is shutdown", entry.getKey());
                 });
     }

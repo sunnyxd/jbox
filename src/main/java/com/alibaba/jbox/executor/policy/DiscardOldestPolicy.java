@@ -1,20 +1,16 @@
 package com.alibaba.jbox.executor.policy;
 
-import com.alibaba.jbox.executor.AsyncRunnable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.util.Objects;
 import java.util.concurrent.ThreadPoolExecutor;
+
+import com.alibaba.jbox.executor.AsyncRunnable;
+import com.alibaba.jbox.executor.ExecutorLoggerInter;
 
 /**
  * @author jifang
  * @since 2017/1/18 下午4:31.
  */
-public class DiscardOldestPolicy extends ThreadPoolExecutor.DiscardOldestPolicy {
-
-    private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox.executor");
-
-    private static final Logger monitorLogger = LoggerFactory.getLogger("executor-monitor");
+public class DiscardOldestPolicy extends ThreadPoolExecutor.DiscardOldestPolicy implements ExecutorLoggerInter {
 
     private String group;
 
@@ -25,19 +21,19 @@ public class DiscardOldestPolicy extends ThreadPoolExecutor.DiscardOldestPolicy 
     @Override
     public void rejectedExecution(Runnable runnable, ThreadPoolExecutor executor) {
         if (!executor.isShutdown()) {
+            // 将队首元素扔掉
             Runnable discardRunnable = executor.getQueue().poll();
             if (discardRunnable instanceof AsyncRunnable) {
-                String taskInfo = ((AsyncRunnable) discardRunnable).taskInfo();
+                AsyncRunnable asyncRunnable = (AsyncRunnable)discardRunnable;
 
-                String msg = String.format("policy: [DiscardOldest], task:[%s] discard, group:[%s] runnable queue remaining:[%s]",
-                        taskInfo,
-                        this.group,
-                        executor.getQueue().remainingCapacity());
+                String message = generatePolicyLoggerContent(group, this, executor.getQueue(), asyncRunnable.taskInfo(),
+                    Objects.hashCode(asyncRunnable));
 
-                logger.warn(msg);
-                monitorLogger.warn(msg);
+                logger.warn(message);
+                monitor.warn(message);
             }
 
+            // 执行新添加元素
             executor.execute(runnable);
         }
     }

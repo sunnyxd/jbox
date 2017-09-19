@@ -1,5 +1,6 @@
 package com.alibaba.jbox.executor;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -8,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @version 1.1
  * @since 2017/1/16 14:25:00.
  */
-public class NamedThreadFactory implements ThreadFactory {
+public class NamedThreadFactory implements ThreadFactory, ExecutorLoggerInter {
 
     private final AtomicInteger number = new AtomicInteger(0);
 
@@ -22,7 +23,15 @@ public class NamedThreadFactory implements ThreadFactory {
     public Thread newThread(Runnable r) {
         Thread thread = new Thread(r);
         thread.setName(String.format("%s-%s", group, number.getAndIncrement()));
+        thread.setUncaughtExceptionHandler(exceptionHandler);
         thread.setDaemon(true);
         return thread;
     }
+
+    private static UncaughtExceptionHandler exceptionHandler = (t, e) -> {
+        String message = String.format("thread: [%s]-[%s] runtime throws exception, state:[%s]",
+            t.getName(), t.getId(), t.getState());
+        monitor.error("{}", message, e);
+        logger.error("{}", message, e);
+    };
 }

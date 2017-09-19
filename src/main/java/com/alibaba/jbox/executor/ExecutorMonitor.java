@@ -38,7 +38,7 @@ import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SING
  * @since 2017/8/22 15:32:00.
  */
 public class ExecutorMonitor extends AbstractApplicationContextAware
-        implements ScheduleTask, LoggerInter, BeanDefinitionRegistryPostProcessor {
+        implements ScheduleTask, ExecutorLoggerInter, BeanDefinitionRegistryPostProcessor {
 
     private static final String ASYNC_KEY = "async";
 
@@ -92,7 +92,7 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
                     .append(callableLogBuilder);
         });
 
-        monitorLogger.info(logBuilder.toString());
+        monitor.info(logBuilder.toString());
     }
 
     /**
