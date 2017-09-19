@@ -32,37 +32,36 @@ public class PerformerTest implements ExecutorLoggerInter {
             analyzer.invoked();
         }
 
-        double qps = analyzer.qps();
+        double qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
+        qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
+        qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
+        qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
-        System.out.println(qps);
+        System.out.println(analyzer.rtString());
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
-        System.out.println(qps);
+        System.out.println(analyzer.tpsString());
+
     }
 }
