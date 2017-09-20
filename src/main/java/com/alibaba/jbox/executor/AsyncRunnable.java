@@ -1,40 +1,36 @@
 package com.alibaba.jbox.executor;
 
-import com.google.common.base.Strings;
-import com.taobao.eagleeye.EagleEye;
-import org.slf4j.MDC;
-
 /**
- * 对Runnable的包装, 在Runnable进入task queue或task被reject时可以打印更详细的信息
- * 即使在executor.submit()时使用JDK原生的Runnable, 也会被封装成一个AsyncRunnable
+ * 类似{@code java.lang.Runnable}结构,
+ * 在{@code Runnable}基础上添加了{@code taskInfo()}方法.
+ * 1. 在task执行时设置rpc context信息;
+ * 2. 在task执行时MDC塞入traceId信息;
+ * 3. 当task进入RunnableQueue后/触发{@code java.util.concurrent.RejectedExecutionHandler}时打印更详细的的信息.
+ *
+ * (使用了{@code ExecutorManager}后, 即使'submit()'使用的是原生Runnable, 也会被封装成一个AsyncRunnable)
  *
  * @author jifang
  * @since 2016/12/20 上午11:09.
  */
-public interface AsyncRunnable extends Runnable, ExecutorLoggerInter {
+@FunctionalInterface
+public interface AsyncRunnable extends java.lang.Runnable, ExecutorLoggerInter {
 
+    /**
+     * implements like {@code Runnable.run()}
+     */
     void execute();
+
+    /**
+     * 对要执行任务详细的描述.
+     *
+     * @return default task class name.
+     */
+    default String taskInfo() {
+        return this.getClass().getName();
+    }
 
     @Override
     default void run() {
-        Object rpcContext = EagleEye.currentRpcContext();
-        EagleEye.setRpcContext(rpcContext);
-
-        String traceId = EagleEye.getTraceId();
-        if (!Strings.isNullOrEmpty(traceId)) {
-            MDC.put(TRACE_ID, traceId);
-        }
-        try {
-            execute();
-        } finally {
-            if (!Strings.isNullOrEmpty(traceId)) {
-                MDC.remove(TRACE_ID);
-            }
-            EagleEye.clearRpcContext();
-        }
-    }
-
-    default String taskInfo() {
-        return this.getClass().getName();
+        execute();
     }
 }

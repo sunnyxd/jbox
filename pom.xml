@@ -8,7 +8,7 @@
 
     <groupId>com.alibaba.jbox</groupId>
     <artifactId>jbox</artifactId>
-    <version>1.4.4-SNAPSHOT</version>
+    <version>1.4.5-SNAPSHOT</version>
 
     <properties>
         <guava.version>23.0</guava.version>
@@ -81,6 +81,7 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
+            <scope>provided</scope>
             <optional>true</optional>
         </dependency>
 
