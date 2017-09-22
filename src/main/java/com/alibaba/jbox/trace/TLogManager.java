@@ -18,13 +18,14 @@ import com.alibaba.jbox.executor.AsyncRunnable;
 import com.alibaba.jbox.executor.ExecutorManager;
 import com.alibaba.jbox.utils.DateUtils;
 
-import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.rolling.RollingFileAppender;
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy;
 import com.google.common.base.Joiner;
 import com.google.common.io.CharStreams;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.core.io.Resource;
@@ -44,7 +45,7 @@ public class TLogManager {
 
     private final ConcurrentMap<String, List<String>> METHOD_SPEL_MAP = new ConcurrentHashMap<>();
 
-    private final Logger tLogger = (Logger)LoggerFactory.getLogger(TLogManager.class);
+    private final Logger tLogger = LoggerFactory.getLogger(TLogManager.class);
 
     private static final ExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
@@ -139,29 +140,44 @@ public class TLogManager {
     }
 
     private void initTLogger(String filePath) {
-        RollingFileAppender<ILoggingEvent> appender = new RollingFileAppender<>();
-        appender.setContext(tLogger.getLoggerContext());
-        appender.setFile(filePath);
-        appender.setAppend(true);
+        try {
+            Class.forName("ch.qos.logback.classic.Logger");
+            if (this.tLogger instanceof ch.qos.logback.classic.Logger) {
+                ch.qos.logback.classic.Logger tLogger = (ch.qos.logback.classic.Logger)this.tLogger;
+                tLogger.setLevel(Level.ALL);
+                RollingFileAppender<ILoggingEvent> appender = new RollingFileAppender<>();
+                appender.setContext(tLogger.getLoggerContext());
+                appender.setFile(filePath);
+                appender.setAppend(true);
 
-        TimeBasedRollingPolicy rolling = new TimeBasedRollingPolicy();
-        rolling.setParent(appender);
-        rolling.setFileNamePattern(filePath + ".%d{yyyy-MM-dd}");
-        rolling.setContext(tLogger.getLoggerContext());
-        rolling.start();
-        appender.setRollingPolicy(rolling);
+                TimeBasedRollingPolicy rolling = new TimeBasedRollingPolicy();
+                rolling.setParent(appender);
+                rolling.setFileNamePattern(filePath + ".%d{yyyy-MM-dd}");
+                rolling.setMaxHistory(15);
+                rolling.setContext(tLogger.getLoggerContext());
+                rolling.start();
+                appender.setRollingPolicy(rolling);
 
-        PatternLayoutEncoder layout = new PatternLayoutEncoder();
-        layout.setPattern("%m%n");
-        layout.setCharset(Charset.forName(charset));
-        layout.setContext(tLogger.getLoggerContext());
-        layout.start();
-        appender.setEncoder(layout);
+                PatternLayoutEncoder layout = new PatternLayoutEncoder();
+                layout.setPattern("%m%n");
+                layout.setCharset(Charset.forName(charset));
+                layout.setContext(tLogger.getLoggerContext());
+                layout.start();
+                appender.setEncoder(layout);
 
-        appender.start();
+                appender.start();
 
-        tLogger.detachAndStopAllAppenders();
-        tLogger.addAppender(appender);
+                tLogger.detachAndStopAllAppenders();
+                tLogger.addAppender(appender);
+            } else {
+                traceLogger.warn("application not used Logback implementation,"
+                    + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
+            }
+        } catch (ClassNotFoundException e) {
+            traceLogger.warn(
+                "class 'ch.qos.logback.classic.Logger' not found(application not used Logback implementation),"
+                    + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
+        }
     }
 
     public void setSpelResource(Resource jsonResource) throws IOException {

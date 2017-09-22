@@ -1,9 +1,7 @@
 package com.alibaba.jbox;
 
-import java.io.InputStream;
-
-import org.junit.Test;
-import org.yaml.snakeyaml.Yaml;
+import org.slf4j.*;
+import org.slf4j.impl.StaticLoggerBinder;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
@@ -12,5 +10,9 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class YamlTester {
 
+    public static void main(String[] args) {
+        ILoggerFactory loggerFactory = StaticLoggerBinder.getSingleton().getLoggerFactory();
 
+        org.slf4j.Logger logger = LoggerFactory.getLogger("ss");
+    }
 }
