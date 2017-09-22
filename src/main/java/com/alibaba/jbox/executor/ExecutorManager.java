@@ -35,33 +35,37 @@ import com.alibaba.jbox.scheduler.ScheduleTask;
  * 3. 如果将{@code ExecutorManager}注册为SpringBean, 会在应用关闭时自动将线程池关闭掉, 防止线程池未关导致应用下线不成功的bug.
  *
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.2
+ * @version 1.3
  * @since 2017/1/16 14:15:00.
  */
 public class ExecutorManager implements ExecutorLoggerInter {
 
-    static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
+    private static volatile boolean syncInvoke = false;
 
+    static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
     // ---- * ThreadPoolExecutor * ---- //
 
-    public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize) {
+    public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize,
+                                                           int runnableQueueSize) {
         RejectedExecutionHandler rejectHandler = new CallerRunsPolicy(group);
 
         return newFixedMinMaxThreadPool(group, minPoolSize, maxPoolSize, runnableQueueSize, rejectHandler);
     }
 
-    public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize, int runnableQueueSize, RejectedExecutionHandler rejectHandler) {
+    public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize,
+                                                           int runnableQueueSize,
+                                                           RejectedExecutionHandler rejectHandler) {
         return executors.computeIfAbsent(group, (key) -> {
             BlockingQueue<Runnable> runnableQueue = new ArrayBlockingQueue<>(runnableQueueSize);
 
             ThreadFactory threadFactory = new NamedThreadFactory(group);
 
             ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(minPoolSize, maxPoolSize,
-                    ScheduleTask.HALF_AN_HOUR_INTERVAL, TimeUnit.MILLISECONDS,
-                    runnableQueue,
-                    threadFactory,
-                    rejectHandler);
+                ScheduleTask.HALF_AN_HOUR_INTERVAL, TimeUnit.MILLISECONDS,
+                runnableQueue,
+                threadFactory,
+                rejectHandler);
 
             return createExecutorProxy(threadPoolExecutor, ExecutorService.class);
         });
@@ -85,9 +89,10 @@ public class ExecutorManager implements ExecutorLoggerInter {
 
     // ---- * newScheduledThreadPool * ---- //
     public static ScheduledExecutorService newScheduledThreadPool(String group, int corePoolSize) {
-        return (ScheduledExecutorService) executors.computeIfAbsent(group, (key) -> {
+        return (ScheduledExecutorService)executors.computeIfAbsent(group, (key) -> {
 
-            ScheduledExecutorService executor = Executors.newScheduledThreadPool(corePoolSize, new NamedThreadFactory(group));
+            ScheduledExecutorService executor = Executors.newScheduledThreadPool(corePoolSize,
+                new NamedThreadFactory(group));
 
             return createExecutorProxy(executor, ScheduledExecutorService.class);
         });
@@ -101,35 +106,44 @@ public class ExecutorManager implements ExecutorLoggerInter {
         });
     }
 
-
     // ---- * newSingleThreadScheduledExecutor * ---- //
     public static ScheduledExecutorService newSingleThreadScheduledExecutor(String group) {
-        return (ScheduledExecutorService) executors.computeIfAbsent(group, (key) -> {
+        return (ScheduledExecutorService)executors.computeIfAbsent(group, (key) -> {
 
-            ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(group));
+            ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory(group));
 
             return createExecutorProxy(executor, ScheduledExecutorService.class);
         });
     }
 
-    private static <T> T createExecutorProxy(Object target, Class<T> interfaceType) {
+    private static <T> T createExecutorProxy(ExecutorService target, Class<T> interfaceType) {
+        if (syncInvoke && !(target instanceof ScheduledExecutorService)) {
+            target.shutdownNow();
+            target = new SyncInvokeExecutorService();
+        }
+
         return interfaceType.cast(
-                Proxy.newProxyInstance(
-                        interfaceType.getClass().getClassLoader(),
-                        new Class[]{interfaceType},
-                        new RunnableDecoratorInterceptor(target)
-                )
+            Proxy.newProxyInstance(
+                interfaceType.getClass().getClassLoader(),
+                new Class[] {interfaceType},
+                new RunnableDecoratorInterceptor(target)
+            )
         );
+    }
+
+    public static void setSyncInvoke(boolean syncInvoke) {
+        ExecutorManager.syncInvoke = syncInvoke;
     }
 
     @PreDestroy
     public void destroy() {
         executors.entrySet().stream()
-                .filter(entry -> !entry.getValue().isShutdown())
-                .forEach(entry -> {
-                    entry.getValue().shutdown();
-                    monitor.info("executor [{}] is shutdown", entry.getKey());
-                    logger.info("executor [{}] is shutdown", entry.getKey());
-                });
+            .filter(entry -> !entry.getValue().isShutdown())
+            .forEach(entry -> {
+                entry.getValue().shutdown();
+                monitor.info("executor [{}] is shutdown", entry.getKey());
+                logger.info("executor [{}] is shutdown", entry.getKey());
+            });
     }
 }

@@ -1,11 +1,11 @@
 package com.alibaba.jbox.utils;
 
-import com.google.common.base.Preconditions;
-
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import com.google.common.base.Preconditions;
 
 /**
  * @author jifang
@@ -19,9 +19,15 @@ public class DateUtils {
 
     private static final String datePattern = "yyyy-MM-dd";
 
-    private static final ThreadLocal<DateFormat> timeFormatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(timePattern));
+    private static final ThreadLocal<DateFormat> timeFormatterMap = ThreadLocal.withInitial(
+        () -> new SimpleDateFormat(timePattern));
 
-    private static final ThreadLocal<DateFormat> dateFormatterMap = ThreadLocal.withInitial(() -> new SimpleDateFormat(datePattern));
+    private static final ThreadLocal<DateFormat> dateFormatterMap = ThreadLocal.withInitial(
+        () -> new SimpleDateFormat(datePattern));
+
+    public static String millisTimeFormat(long millis) {
+        return timeFormat(new Date(millis));
+    }
 
     public static String timeFormat(Object obj) {
         return timeFormatterMap.get().format(obj);
@@ -30,6 +36,10 @@ public class DateUtils {
     public static Date timeParse(String source) throws ParseException {
         Preconditions.checkNotNull(source);
         return timeFormatterMap.get().parse(source);
+    }
+
+    public static String millisDateFormat(long millis) {
+        return dateFormat(new Date(millis));
     }
 
     public static String dateFormat(Object obj) {

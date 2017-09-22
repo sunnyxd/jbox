@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.jbox.executor.AsyncRunnable;
 import com.alibaba.jbox.utils.AopTargetUtils;
 
 import com.google.common.base.Strings;
@@ -44,11 +45,11 @@ import org.springframework.core.io.Resource;
 import org.springframework.util.ReflectionUtils;
 import org.yaml.snakeyaml.Yaml;
 
-
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.4
- *          - 1.0: a simple vitamin faced use @{code org.springframework.beans.factory.config.PlaceholderConfigurerSupport};
+ *          - 1.0: a simple vitamin faced use @{code org.springframework.beans.factory.config
+ *          .PlaceholderConfigurerSupport};
  *          - 1.1: replace use {@code org.springframework.context.support.PropertySourcesPlaceholderConfigurer};
  *          - 1.2: change vitamin to Diamond;
  *          - 1.3: load yaml file as a config file format;
@@ -58,12 +59,12 @@ import org.yaml.snakeyaml.Yaml;
  * - 因为它能够基于Environment及其属性源来解析占位符.
  */
 public class DiamondPropertySourcesPlaceholder
-        extends PropertySourcesPlaceholderConfigurer
-        implements InitializingBean, DisposableBean, ApplicationContextAware {
+    extends PropertySourcesPlaceholderConfigurer
+    implements InitializingBean, DisposableBean, ApplicationContextAware {
 
     private static final Logger logger = LoggerFactory.getLogger(DiamondPropertySourcesPlaceholder.class);
 
-    private static final ConcurrentMap<Class, Class> primitiveTypes = new ConcurrentHashMap<Class, Class>() {
+    private static final ConcurrentMap<Class, Class> PRIMITIVE_TYPES = new ConcurrentHashMap<Class, Class>() {
         private static final long serialVersionUID = -4085587013134835589L;
 
         {
@@ -231,7 +232,8 @@ public class DiamondPropertySourcesPlaceholder
     }
 
     @Override
-    protected void processProperties(ConfigurableListableBeanFactory beanFactoryToProcess, ConfigurablePropertyResolver propertyResolver) throws BeansException {
+    protected void processProperties(ConfigurableListableBeanFactory beanFactoryToProcess,
+                                     ConfigurablePropertyResolver propertyResolver) throws BeansException {
         // store BeanFactory temporary
         beanFactory = beanFactoryToProcess;
         super.processProperties(beanFactoryToProcess, propertyResolver);
@@ -259,13 +261,12 @@ public class DiamondPropertySourcesPlaceholder
     private Properties loadYamlResources() throws IOException {
         Properties properties = new Properties();
         for (Resource yamlResource : this.yamlResources) {
-            /**
-             * attention!!! : not support raw array yaml config
+            /*
+             * TODO: attention -- not support raw array yaml config.
              */
-            Map<?, ?> yamlMap = (Map<?, ?>) new Yaml().load(yamlResource.getInputStream());
+            Map<?, ?> yamlMap = (Map<?, ?>)new Yaml().load(yamlResource.getInputStream());
 
             properties.putAll(yamlMap);
-            // yamlMap.forEach(properties::put);
         }
 
         return properties;
@@ -285,7 +286,7 @@ public class DiamondPropertySourcesPlaceholder
     private String convertEntryValue(Object value) {
         String stringValue;
         if (value instanceof String) {
-            stringValue = (String) value;
+            stringValue = (String)value;
         } else {
             stringValue = String.valueOf(value);
         }
@@ -319,8 +320,9 @@ public class DiamondPropertySourcesPlaceholder
                             // 不可能发生
                         }
 
-                        logger.warn("class: '{}' instance field: [{}] value is change to [{}]", beanInstance.getClass().getName(),
-                                field.getName(), fieldValue);
+                        logger.warn("class: '{}' instance field: [{}] value is change to [{}]",
+                            beanInstance.getClass().getName(),
+                            field.getName(), fieldValue);
                     }
                     notifyCallback(fieldWithValues, fieldWithBeans.iterator().next().getRight());
                 } else {
@@ -335,11 +337,16 @@ public class DiamondPropertySourcesPlaceholder
     // @since 1.4
     private void notifyCallback(List<Pair<Field, Object>> fieldWithValues, Object target) {
         if (target instanceof FieldChangedCallback) {
-            FieldChangedCallback callback = (FieldChangedCallback) target;
-            Runnable runnable = new Runnable() {
+            FieldChangedCallback callback = (FieldChangedCallback)target;
+            AsyncRunnable runnable = new AsyncRunnable() {
                 @Override
-                public void run() {
+                public void execute() {
                     callback.receiveConfigInfo(fieldWithValues);
+                }
+
+                @Override
+                public String taskInfo() {
+                    return this.getClass().getName() + " wait callback " + fieldWithValues;
                 }
             };
             if (callback.getExecutor() == null) {
@@ -389,13 +396,14 @@ public class DiamondPropertySourcesPlaceholder
         if (value.startsWith("${") && value.endsWith("}")) {
             return value.substring("${".length(), value.length() - 1);
         } else {
-            throw new PropertySourcesPlaceholderException("@Value annotation need \"${[config key]}\" config in the value() property");
+            throw new PropertySourcesPlaceholderException(
+                "@Value annotation need \"${[config key]}\" config in the value() property");
         }
     }
 
     public static <T> Object convertTypeValue(String value, Class<T> type, Type genericType) {
         Object instance = null;
-        Class<?> primitiveType = primitiveTypes.get(type);
+        Class<?> primitiveType = PRIMITIVE_TYPES.get(type);
         if (primitiveType != null) {
             try {
                 instance = primitiveType.getMethod("valueOf", String.class).invoke(null, value);
@@ -431,6 +439,8 @@ public class DiamondPropertySourcesPlaceholder
 
     private static class PropertySourcesPlaceholderException extends RuntimeException {
 
+        private static final long serialVersionUID = 3949739146397637634L;
+
         public PropertySourcesPlaceholderException(String message) {
             super(message);
         }
@@ -439,7 +449,8 @@ public class DiamondPropertySourcesPlaceholder
             super(cause);
         }
 
-        protected PropertySourcesPlaceholderException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        protected PropertySourcesPlaceholderException(String message, Throwable cause, boolean enableSuppression,
+                                                      boolean writableStackTrace) {
             super(message, cause, enableSuppression, writableStackTrace);
         }
 

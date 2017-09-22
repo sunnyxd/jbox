@@ -21,7 +21,7 @@ public interface AsyncRunnable extends java.lang.Runnable, ExecutorLoggerInter {
     void execute();
 
     /**
-     * 对要执行任务详细的描述.
+     * detail info of the task need to invoke.
      *
      * @return default task class name.
      */
@@ -29,6 +29,9 @@ public interface AsyncRunnable extends java.lang.Runnable, ExecutorLoggerInter {
         return this.getClass().getName();
     }
 
+    /**
+     * default implements Runnable, you should not change this implementation !!!
+     */
     @Override
     default void run() {
         execute();

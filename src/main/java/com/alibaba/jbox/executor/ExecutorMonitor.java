@@ -38,7 +38,7 @@ import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SING
  * @since 2017/8/22 15:32:00.
  */
 public class ExecutorMonitor extends AbstractApplicationContextAware
-        implements ScheduleTask, ExecutorLoggerInter, BeanDefinitionRegistryPostProcessor {
+    implements ScheduleTask, ExecutorLoggerInter, BeanDefinitionRegistryPostProcessor {
 
     private static final String ASYNC_KEY = "async";
 
@@ -53,33 +53,38 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
         StringBuilder logBuilder = new StringBuilder(1000);
         logBuilder.append("executors group [")
-                .append(ExecutorManager.executors.size())
-                .append("]:\n");
+            .append(ExecutorManager.executors.size())
+            .append("]:\n");
 
         ExecutorManager.executors.forEach((group, executorProxy) -> {
             ThreadPoolExecutor executor = getThreadPoolExecutor(executorProxy);
+            if (executor == null) {
+                return;
+            }
 
             BlockingQueue<Runnable> queue = executor.getQueue();
-            logBuilder.append(String.format("\tgroup:[%s], pool:[%s], active:[%d], core pool:[%d], max pool:[%d], task in queue:[%d], remain:[%d]\n",
-                    group,
-                    executor.getPoolSize(),
-                    executor.getActiveCount(),
-                    executor.getCorePoolSize(),
-                    executor.getMaximumPoolSize(),
-                    queue.size(),
-                    queue.remainingCapacity()));
+            logBuilder.append(String.format(
+                "\tgroup:[%s], pool:[%s], active:[%d], core pool:[%d], max pool:[%d], task in queue:[%d], "
+                    + "remain:[%d]\n",
+                group,
+                executor.getPoolSize(),
+                executor.getActiveCount(),
+                executor.getCorePoolSize(),
+                executor.getMaximumPoolSize(),
+                queue.size(),
+                queue.remainingCapacity()));
 
             StreamForker<Runnable> forker = new StreamForker<>(queue.stream())
-                    .fork(ASYNC_KEY, stream -> stream
-                            .filter(runnable -> runnable instanceof AsyncRunnable)
-                            .collect(new Collector()))
-                    .fork(FUTURE_KEY, stream -> stream
-                            .filter(runnable -> runnable instanceof FutureTask)
-                            .map(this::getFutureTaskInnerAsyncObject)
-                            .collect(new Collector()))
-                    .fork(CALLABLE_KEY, stream -> stream
-                            .filter(callable -> callable instanceof AsyncCallable)
-                            .collect(new Collector()));
+                .fork(ASYNC_KEY, stream -> stream
+                    .filter(runnable -> runnable instanceof AsyncRunnable)
+                    .collect(new Collector()))
+                .fork(FUTURE_KEY, stream -> stream
+                    .filter(runnable -> runnable instanceof FutureTask)
+                    .map(this::getFutureTaskInnerAsyncObject)
+                    .collect(new Collector()))
+                .fork(CALLABLE_KEY, stream -> stream
+                    .filter(callable -> callable instanceof AsyncCallable)
+                    .collect(new Collector()));
 
             StreamForker.Results results = forker.getResults();
             StringBuilder asyncLogBuilder = results.get(ASYNC_KEY);
@@ -87,9 +92,9 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             StringBuilder callableLogBuilder = results.get(CALLABLE_KEY);
 
             logBuilder
-                    .append(asyncLogBuilder)
-                    .append(futureLogBuilder)
-                    .append(callableLogBuilder);
+                .append(asyncLogBuilder)
+                .append(futureLogBuilder)
+                .append(callableLogBuilder);
         });
 
         monitor.info(logBuilder.toString());
@@ -104,13 +109,15 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
         ThreadPoolExecutor executor = null;
 
         if (executorProxy instanceof ThreadPoolExecutor) {
-            executor = (ThreadPoolExecutor) executorProxy;
+            executor = (ThreadPoolExecutor)executorProxy;
         } else if (Proxy.isProxyClass(executorProxy.getClass())) {
             Object target = ProxyUtil.getProxyTarget(executorProxy);
             if (target instanceof ThreadPoolExecutor) {
-                executor = (ThreadPoolExecutor) target;
+                executor = (ThreadPoolExecutor)target;
+            } else if (target instanceof SyncInvokeExecutorService) {
+                executor = null;
             } else {
-                executor = (ThreadPoolExecutor) JboxUtils.getFieldValue(target, "e");
+                executor = (ThreadPoolExecutor)JboxUtils.getFieldValue(target, "e");
             }
         }
 
@@ -133,11 +140,11 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
                 Method taskInfoMethod = ReflectionUtils.findMethod(object.getClass(), "taskInfo");
                 ReflectionUtils.makeAccessible(taskInfoMethod);
                 stringBuilder.append("\t -> ")
-                        .append("task: ")
-                        .append(ReflectionUtils.invokeMethod(taskInfoMethod, object))
-                        .append(", obj: ")
-                        .append(Objects.hashCode(object))
-                        .append("\n");
+                    .append("task: ")
+                    .append(ReflectionUtils.invokeMethod(taskInfoMethod, object))
+                    .append(", obj: ")
+                    .append(Objects.hashCode(object))
+                    .append("\n");
             };
         }
 
@@ -185,7 +192,8 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             taskScheduler.setDestroyMethodName("shutdown");
             taskScheduler.setScope(SCOPE_SINGLETON);
             taskScheduler.getConstructorArgumentValues().addIndexedArgumentValue(0, true);
-            registry.registerBeanDefinition(getUsableBeanName("com.alibaba.jbox.scheduler.TaskScheduler", registry), taskScheduler);
+            registry.registerBeanDefinition(getUsableBeanName("com.alibaba.jbox.scheduler.TaskScheduler", registry),
+                taskScheduler);
         }
     }
 

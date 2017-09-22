@@ -1,0 +1,3 @@
+com.cainiao.webapp.service.HelloWorldService:user
+  - #args[0].name
+  - #args[0].id

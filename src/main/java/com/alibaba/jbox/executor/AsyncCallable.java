@@ -19,13 +19,13 @@ public interface AsyncCallable<V> extends java.util.concurrent.Callable<V>, Exec
     /**
      * implements like {@code Callable.call()}
      *
-     * @return
-     * @throws Exception
+     * @return sub thread invoke result
+     * @throws Exception sub thread runtime throws Exception
      */
     V execute() throws Exception;
 
     /**
-     * 对要执行任务详细的描述.
+     * detail info of the task need to invoke.
      *
      * @return default task class name.
      */
@@ -33,6 +33,12 @@ public interface AsyncCallable<V> extends java.util.concurrent.Callable<V>, Exec
         return this.getClass().getName();
     }
 
+    /**
+     * default implements Callable<V>, you should not change this implementation !!!
+     *
+     * @return {@code this.execute()} return value
+     * @throws Exception {@code this.execute()} throws Exception
+     */
     @Override
     default V call() throws Exception {
         return execute();

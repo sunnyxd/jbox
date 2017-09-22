@@ -28,6 +28,13 @@ public class ScriptTester {
 
     private static final Logger logger = LoggerFactory.getLogger(ScriptTester.class);
 
+
+    @Test
+    public void testMDC(){
+
+
+    }
+
     @Test
     public void testCaller() {
         People people = new People("ss", new Address());

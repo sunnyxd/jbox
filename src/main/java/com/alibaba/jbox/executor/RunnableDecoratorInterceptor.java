@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
@@ -19,9 +20,9 @@ import org.slf4j.MDC;
  */
 class RunnableDecoratorInterceptor implements InvocationHandler {
 
-    private Object target;
+    private ExecutorService target;
 
-    RunnableDecoratorInterceptor(Object target) {
+    RunnableDecoratorInterceptor(ExecutorService target) {
         this.target = target;
     }
 
