@@ -86,10 +86,13 @@ public class TraceAspect {
     private volatile boolean result = true;
 
     /**
-     * determine use sentinel for 'rate limit' ...
+     * determine use sentinel for 'rate limit'.
      */
     private volatile boolean sentinel = false;
 
+    /**
+     * determine append 'com.alibaba.jbox.trace' log or not.
+     */
     private volatile boolean trace = false;
 
     /**
@@ -98,6 +101,9 @@ public class TraceAspect {
      */
     private ConcurrentMap<String, TraceConfig> traceConfigs = new ConcurrentHashMap<>();
 
+    /**
+     * use for push TLog event.
+     */
     private TLogManager tLogManager;
 
     @Around("@annotation(com.alibaba.jbox.trace.Trace)")
