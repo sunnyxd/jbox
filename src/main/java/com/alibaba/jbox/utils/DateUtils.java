@@ -19,13 +19,18 @@ public class DateUtils {
 
     private static final String datePattern = "yyyy-MM-dd";
 
+    private static final String millisPattern = "yyyy-MM-dd HH:mm:ss.SSS";
+
     private static final ThreadLocal<DateFormat> timeFormatterMap = ThreadLocal.withInitial(
         () -> new SimpleDateFormat(timePattern));
 
     private static final ThreadLocal<DateFormat> dateFormatterMap = ThreadLocal.withInitial(
         () -> new SimpleDateFormat(datePattern));
 
-    public static String millisTimeFormat(long millis) {
+    private static final ThreadLocal<DateFormat> millisFormatterMap = ThreadLocal.withInitial(
+        () -> new SimpleDateFormat(millisPattern));
+
+    public static String timeFormatFromMillis(long millis) {
         return timeFormat(new Date(millis));
     }
 
@@ -38,7 +43,7 @@ public class DateUtils {
         return timeFormatterMap.get().parse(source);
     }
 
-    public static String millisDateFormat(long millis) {
+    public static String dateFormatFromMillis(long millis) {
         return dateFormat(new Date(millis));
     }
 
@@ -49,5 +54,18 @@ public class DateUtils {
     public static Date dateParse(String source) throws ParseException {
         Preconditions.checkNotNull(source);
         return dateFormatterMap.get().parse(source);
+    }
+
+    public static String millisFormatFromMillis(long millis) {
+        return millisFormat(new Date(millis));
+    }
+
+    public static String millisFormat(Object obj) {
+        return millisFormatterMap.get().format(obj);
+    }
+
+    public static Date millsParse(String source) throws ParseException {
+        Preconditions.checkNotNull(source);
+        return millisFormatterMap.get().parse(source);
     }
 }

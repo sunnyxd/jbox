@@ -2,15 +2,20 @@ package com.alibaba.jbox.trace;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
+
+import javax.annotation.PostConstruct;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -18,22 +23,22 @@ import com.alibaba.jbox.executor.AsyncRunnable;
 import com.alibaba.jbox.executor.ExecutorManager;
 import com.alibaba.jbox.utils.DateUtils;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.rolling.RollingFileAppender;
-import ch.qos.logback.core.rolling.TimeBasedRollingPolicy;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.io.CharStreams;
+import lombok.ToString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.io.Resource;
-import org.springframework.expression.EvaluationContext;
-import org.springframework.expression.ExpressionParser;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 
+import static com.alibaba.jbox.trace.Constants.PLACEHOLDER;
+import static com.alibaba.jbox.trace.Constants.SEPARATOR;
+import static com.alibaba.jbox.trace.Constants.UTF_8;
+import static com.alibaba.jbox.trace.LogBackHelper.initTLogger;
+import static com.alibaba.jbox.trace.SpELHelpers.calcSpelValues;
 import static com.alibaba.jbox.trace.TraceAspect.traceLogger;
 
 /**
@@ -41,30 +46,31 @@ import static com.alibaba.jbox.trace.TraceAspect.traceLogger;
  * @version 1.0
  * @since 2017/9/22 15:50:00.
  */
-public class TLogManager {
+public class TLogManager implements InitializingBean {
 
-    private final ConcurrentMap<String, List<String>> METHOD_SPEL_MAP = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, List<SpELConfigEntry>> METHOD_SPEL_MAP = new ConcurrentHashMap<>();
 
     private final Logger tLogger = LoggerFactory.getLogger(TLogManager.class);
 
-    private static final ExpressionParser SPEL_PARSER = new SpelExpressionParser();
-
-    private static final String SEPARATOR = "|";
-
-    private static final String PLACEHOLDER = "";
-
     private static ExecutorService EXECUTOR;
+
+    private String placeHolder = PLACEHOLDER;
+
+    private String filePath;
 
     private boolean sync = true;
 
-    private String charset = "UTF-8";
+    private String charset = UTF_8;
 
-    public TLogManager(String filePath) {
-        initTLogger(filePath);
+    @PostConstruct
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        initTLogger(tLogger, filePath, charset);
         if (sync) {
             ExecutorManager.setSyncInvoke(true);
         }
         EXECUTOR = ExecutorManager.newFixedMinMaxThreadPool("TLogManager", 3, 12, 1024);
+
     }
 
     void postTLogEvent(TLogEvent event) {
@@ -81,32 +87,38 @@ public class TLogManager {
 
         @Override
         public void execute() {
-            List<Object> logEntity = new ArrayList<>();
-            logEntity.add(event.getServerIp());
-            logEntity.add(event.getTraceId());
-            logEntity.add(event.getClientName());
-            logEntity.add(event.getClientIp());
-            logEntity.add(DateUtils.millisTimeFormat(event.getInvokeTime()));
-            logEntity.add(event.getCostTime());
-            logEntity.add(event.getClassName());
-            logEntity.add(event.getMethodName());
-            logEntity.add(JSONObject.toJSONString(event.getArgs()));
-            logEntity.add(JSONObject.toJSONString(event.getResult()));
-            logEntity.add(event.getException() == null ? PLACEHOLDER : JSONObject.toJSONString(event.getException()));
+            try {
+                List<Object> logEntity = new ArrayList<>();
+                logEntity.add(DateUtils.millisFormatFromMillis(event.getInvokeTime()));
+                logEntity.add(event.getCostTime());
+                logEntity.add(event.getClassName());
+                logEntity.add(event.getMethodName());
+                logEntity.add(nullToPlaceholder(event.getArgs(), JSONObject::toJSONString));
+                logEntity.add(nullToPlaceholder(event.getResult(), JSONObject::toJSONString));
+                logEntity.add(nullToPlaceholder(event.getException(), JSONObject::toJSONString));
+                logEntity.add(event.getServerIp());
+                logEntity.add(nullToPlaceholder(event.getTraceId()));
+                logEntity.add(event.getClientName());
+                logEntity.add(event.getClientIp());
 
-            String methodKey = event.getClassName() + ":" + event.getMethodName();
-            List<String> spels = METHOD_SPEL_MAP.getOrDefault(methodKey, Collections.emptyList());
-            List<Object> spelValues = calcSpelValues(event.getArgs(), event.getResult(), spels);
-            for (Object spelValue : spelValues) {
-                if (spelValue instanceof String) {
-                    logEntity.add(spelValue);
-                } else {
-                    logEntity.add(JSONObject.toJSONString(spelValue));
+                String methodKey = event.getClassName() + ":" + event.getMethodName();
+                List<SpELConfigEntry> spels = METHOD_SPEL_MAP.getOrDefault(methodKey, Collections.emptyList());
+
+                List<Collection> collectionArgValues = spels.stream().filter(SpELConfigEntry::isMulti).findAny()
+                    .map(entry -> parsMultiConfig(entry, event))
+                    .orElseGet(() -> parsSingleConfig(spels, event));
+
+                // 针对每一个为Collection的#arg都打一条log
+                for (Collection collectionArgValue : collectionArgValues) {
+                    LinkedList<Object> logEntityCopy = new LinkedList<>(logEntity);
+                    logEntityCopy.addAll(collectionArgValue);
+
+                    String content = Joiner.on(SEPARATOR).useForNull(placeHolder).join(logEntityCopy);
+                    TLogManager.this.tLogger.trace("{}", content);
                 }
+            } catch (Throwable e) {
+                traceLogger.error("trace Event:[{}] error.", event, e);
             }
-
-            String logContent = Joiner.on(SEPARATOR).join(logEntity);
-            TLogManager.this.tLogger.trace("{}", logContent);
         }
 
         @Override
@@ -115,69 +127,48 @@ public class TLogManager {
         }
     }
 
-    private static List<Object> calcSpelValues(Object[] args, Object result, List<String> spels) {
-        try {
-            List<Object> values;
-            if (spels != null && !spels.isEmpty()) {
-                // 将'args', 'result'导入spel执行环境
-                EvaluationContext context = new StandardEvaluationContext();
-                context.setVariable("args", args);
-                context.setVariable("result", result);
+    private List<Collection> parsMultiConfig(SpELConfigEntry multiConfigEntry, TLogEvent event) {
+        String argKey = multiConfigEntry.getKey();
+        Object multiArg = calcSpelValues(event, Collections.singletonList(argKey), placeHolder).get(
+            0);
 
-                values = new ArrayList<>(args.length + 1);
-                for (String spel : spels) {
-                    Object judgeResult = SPEL_PARSER.parseExpression(spel).getValue(context);
-                    values.add(judgeResult);
-                }
-            } else {
-                values = Collections.emptyList();
-            }
-            return values;
-        } catch (Throwable e) {
-            traceLogger.error("parse spels: {} error", spels, e);
-            throw e;
+        Collection collectionArg;
+        if (multiArg instanceof Collection) {
+            collectionArg = (Collection)multiArg;
+        } else if (multiArg.getClass().isArray()) {
+            collectionArg = Arrays.stream((Object[])multiArg).collect(Collectors.toList());
+        } else {
+            throw new TraceException(
+                argKey + " specified argument is not an array or Collection instance");
         }
+
+        List<Collection> collectionArgResults = new ArrayList<>(collectionArg.size());
+        List<String> argInnerSpels = multiConfigEntry.getValue();
+        for (Object collectionArgItem : collectionArg) {
+            if (argInnerSpels.isEmpty()) {
+                List<Object> list = new ArrayList<>();
+                list.add(collectionArgItem);
+                collectionArgResults.add(list);
+            } else {
+                collectionArgResults.add(calcSpelValues(collectionArgItem, argInnerSpels));
+            }
+        }
+
+        return collectionArgResults;
     }
 
-    private void initTLogger(String filePath) {
-        try {
-            Class.forName("ch.qos.logback.classic.Logger");
-            if (this.tLogger instanceof ch.qos.logback.classic.Logger) {
-                ch.qos.logback.classic.Logger tLogger = (ch.qos.logback.classic.Logger)this.tLogger;
-                tLogger.setLevel(Level.ALL);
-                RollingFileAppender<ILoggingEvent> appender = new RollingFileAppender<>();
-                appender.setContext(tLogger.getLoggerContext());
-                appender.setFile(filePath);
-                appender.setAppend(true);
+    private List<Collection> parsSingleConfig(List<SpELConfigEntry> singleSpels, TLogEvent event) {
+        List<String> argSpels = singleSpels.stream().map(SpELConfigEntry::getKey).collect(Collectors.toList());
 
-                TimeBasedRollingPolicy rolling = new TimeBasedRollingPolicy();
-                rolling.setParent(appender);
-                rolling.setFileNamePattern(filePath + ".%d{yyyy-MM-dd}");
-                rolling.setMaxHistory(15);
-                rolling.setContext(tLogger.getLoggerContext());
-                rolling.start();
-                appender.setRollingPolicy(rolling);
+        return Collections.singletonList(calcSpelValues(event, argSpels, placeHolder));
+    }
 
-                PatternLayoutEncoder layout = new PatternLayoutEncoder();
-                layout.setPattern("%m%n");
-                layout.setCharset(Charset.forName(charset));
-                layout.setContext(tLogger.getLoggerContext());
-                layout.start();
-                appender.setEncoder(layout);
+    private String nullToPlaceholder(Object nullableObj) {
+        return nullToPlaceholder(nullableObj, Object::toString);
+    }
 
-                appender.start();
-
-                tLogger.detachAndStopAllAppenders();
-                tLogger.addAppender(appender);
-            } else {
-                traceLogger.warn("application not used Logback implementation,"
-                    + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
-            }
-        } catch (ClassNotFoundException e) {
-            traceLogger.warn(
-                "class 'ch.qos.logback.classic.Logger' not found(application not used Logback implementation),"
-                    + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
-        }
+    private String nullToPlaceholder(Object nullableObj, Function<Object, String> processor) {
+        return nullableObj == null ? placeHolder : processor.apply(nullableObj);
     }
 
     public void setSpelResource(Resource jsonResource) throws IOException {
@@ -185,12 +176,16 @@ public class TLogManager {
         JSONObject jsonObject = JSONObject.parseObject(json);
         for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
             String key = entry.getKey();
-            List<String> spels = METHOD_SPEL_MAP.computeIfAbsent(key, k -> new LinkedList<>());
-            ((JSONArray)entry.getValue()).stream().map(v -> (String)v).forEach(spels::add);
+            List<SpELConfigEntry> spels = METHOD_SPEL_MAP.computeIfAbsent(key, k -> new LinkedList<>());
+            spels.addAll(SpELConfigEntry.parseEntriesFromJsonArray((JSONArray)entry.getValue()));
         }
     }
 
-    public void setMethodSpelMap(Map<String, List<String>> methodSpelMap) {
+    public void setFilePath(String filePath) {
+        this.filePath = filePath;
+    }
+
+    public void setMethodSpelMap(Map<String, List<SpELConfigEntry>> methodSpelMap) {
         METHOD_SPEL_MAP.putAll(methodSpelMap);
     }
 
@@ -200,5 +195,64 @@ public class TLogManager {
 
     public void setCharset(String charset) {
         this.charset = charset;
+    }
+
+    public void setPlaceHolder(String placeHolder) {
+        this.placeHolder = placeHolder;
+    }
+
+    @ToString
+    public static class SpELConfigEntry implements Map.Entry<String, List<String>> {
+
+        private String key;
+
+        private List<String> value;
+
+        public SpELConfigEntry(String key, List<String> value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        public static List<SpELConfigEntry> parseEntriesFromJsonArray(JSONArray array) {
+            List<SpELConfigEntry> entries = new ArrayList<>(array.size());
+            for (Object jsonEntry : array) {
+                String key = null;
+                List<String> value = null;
+
+                if (jsonEntry instanceof String) {
+                    key = (String)jsonEntry;
+                } else if (jsonEntry instanceof JSONObject) {
+                    JSONObject jsonObject = (JSONObject)jsonEntry;
+                    Preconditions.checkArgument(jsonObject.size() == 1);
+
+                    Entry<String, Object> next = jsonObject.entrySet().iterator().next();
+                    key = next.getKey();
+                    value = ((JSONArray)next.getValue()).stream().map(Object::toString).collect(Collectors.toList());
+                }
+
+                entries.add(new SpELConfigEntry(key, value));
+            }
+
+            return entries;
+        }
+
+        public boolean isMulti() {
+            return this.value != null;
+        }
+
+        @Override
+        public String getKey() {
+            return key;
+        }
+
+        @Override
+        public List<String> getValue() {
+            return this.value;
+        }
+
+        @Override
+        public List<String> setValue(List<String> value) {
+            return this.value = value;
+        }
     }
 }
