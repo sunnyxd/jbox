@@ -25,6 +25,8 @@ class TLogEvent {
 
     private String clientIp;
 
+    private String invokeThread;
+
     /**
      * need generate from TraceAspect invoke
      */
@@ -47,5 +49,6 @@ class TLogEvent {
         this.traceId = EagleEye.getTraceId();
         this.clientName = RequestCtxUtil.getAppNameOfClient();
         this.clientIp = RequestCtxUtil.getClientIp();
+        this.invokeThread = Thread.currentThread().getName();
     }
 }

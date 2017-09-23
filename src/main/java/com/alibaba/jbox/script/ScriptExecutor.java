@@ -38,7 +38,7 @@ import static com.alibaba.jbox.script.ScriptType.Python;
  */
 @Service("com.alibaba.jbox.script.ScriptService")
 public class ScriptExecutor extends AbstractApplicationContextAware
-        implements IScriptExecutor, BeanDefinitionRegistryPostProcessor {
+    implements IScriptExecutor, BeanDefinitionRegistryPostProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox.script");
 
@@ -46,7 +46,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
 
     private static final String HACKER_SALT = "@$^_^$@";
 
-    private Map<String, Object> contextNotInSpring = new HashMap<>();
+    private static final Map<String, Object> contextNotInSpring = new HashMap<>();
 
     private Reference<Bindings> reference = new SoftReference<>(null);
 
@@ -66,24 +66,24 @@ public class ScriptExecutor extends AbstractApplicationContextAware
 
             Bindings bindings = loadScriptContext();
             Map<String, String> contexts = new LinkedHashMap<>();
-            contexts.put("#bean name#", "#bean type#");
+            contexts.put("${bean name}", "${bean type}");
 
             return bindings.entrySet()
-                    .stream()
-                    .filter(entry -> {
-                        String prop = properties.getProperty(entry.getKey());
-                        return prop == null || !"name".equals(prop);
-                    })
-                    .filter(entry -> {
-                        String className = entry.getValue().getClass().getName();
-                        String prop = properties.getProperty(className);
-                        return prop == null || !"type".equals(prop);
-                    })
-                    .collect(Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry -> entry.getValue().getClass().getName(),
-                            (m1, m2) -> m1,
-                            () -> contexts));
+                .stream()
+                .filter(entry -> {
+                    String prop = properties.getProperty(entry.getKey());
+                    return prop == null || !"name".equals(prop);
+                })
+                .filter(entry -> {
+                    String className = entry.getValue().getClass().getName();
+                    String prop = properties.getProperty(className);
+                    return prop == null || !"type".equals(prop);
+                })
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> entry.getValue().getClass().getName(),
+                    (m1, m2) -> m1,
+                    () -> contexts));
 
         } catch (IOException e) {
             throw new ScriptException(e);
@@ -115,7 +115,7 @@ public class ScriptExecutor extends AbstractApplicationContextAware
         }
 
         return "your script is not security, salt: "
-                + (Strings.isNullOrEmpty(salt) ? "[empty]" : salt);
+            + (Strings.isNullOrEmpty(salt) ? "[empty]" : salt);
     }
 
     @Override
@@ -130,6 +130,9 @@ public class ScriptExecutor extends AbstractApplicationContextAware
         contextNotInSpring.put(name, value);
     }
 
+    public static void register(String name, Object value) {
+        contextNotInSpring.put(name, value);
+    }
 
     private Bindings loadScriptContext() {
 

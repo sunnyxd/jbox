@@ -2,6 +2,8 @@ package com.alibaba.jbox.trace;
 
 import java.nio.charset.Charset;
 
+import com.alibaba.jbox.script.ScriptExecutor;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -22,13 +24,13 @@ class LogBackHelper {
 
     static void initTLogger(Logger logger, String filePath, String charset) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(filePath), "log file can't be empty!");
-        
+
         try {
             Class.forName("ch.qos.logback.classic.Logger");
             if (logger instanceof ch.qos.logback.classic.Logger) {
                 ch.qos.logback.classic.Logger tLogger = (ch.qos.logback.classic.Logger)logger;
-                tLogger.setLevel(Level.ALL);
                 RollingFileAppender<ILoggingEvent> appender = new RollingFileAppender<>();
+                appender.setName(tLogger.getName());
                 appender.setContext(tLogger.getLoggerContext());
                 appender.setFile(filePath);
                 appender.setAppend(true);
@@ -42,16 +44,18 @@ class LogBackHelper {
                 appender.setRollingPolicy(rolling);
 
                 PatternLayoutEncoder layout = new PatternLayoutEncoder();
-                layout.setPattern("%m%n");
+                layout.setPattern("[%thread]%m%n");
                 layout.setCharset(Charset.forName(charset));
                 layout.setContext(tLogger.getLoggerContext());
                 layout.start();
                 appender.setEncoder(layout);
-
                 appender.start();
 
                 tLogger.detachAndStopAllAppenders();
+                tLogger.setAdditive(false);
+                tLogger.setLevel(Level.ALL);
                 tLogger.addAppender(appender);
+                ScriptExecutor.register("logbackAppender", appender);
             } else {
                 traceLogger.warn("application not used Logback implementation,"
                     + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");

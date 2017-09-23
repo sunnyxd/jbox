@@ -90,6 +90,7 @@ public class TLogManager implements InitializingBean {
             try {
                 List<Object> logEntity = new ArrayList<>();
                 logEntity.add(DateUtils.millisFormatFromMillis(event.getInvokeTime()));
+                logEntity.add(event.getInvokeThread());
                 logEntity.add(event.getCostTime());
                 logEntity.add(event.getClassName());
                 logEntity.add(event.getMethodName());
