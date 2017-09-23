@@ -105,7 +105,7 @@ public class TLogManager implements InitializingBean {
                 List<SpELConfigEntry> spels = METHOD_SPEL_MAP.getOrDefault(methodKey, Collections.emptyList());
 
                 List<Collection> collectionArgValues = spels.stream().filter(SpELConfigEntry::isMulti).findAny()
-                    .map(entry -> parsMultiConfig(entry, event))
+                    .map(multiEntry -> parsMultiConfig(new ArrayList<>(spels), multiEntry, event))
                     .orElseGet(() -> parsSingleConfig(spels, event));
 
                 // 针对每一个为Collection的#arg都打一条log
@@ -127,7 +127,12 @@ public class TLogManager implements InitializingBean {
         }
     }
 
-    private List<Collection> parsMultiConfig(SpELConfigEntry multiConfigEntry, TLogEvent event) {
+    private List<Collection> parsMultiConfig(List<SpELConfigEntry> spels, SpELConfigEntry multiConfigEntry,
+                                             TLogEvent event) {
+        List<String> spelList = spels.stream().filter(entry -> !entry.isMulti()).map(SpELConfigEntry::getKey).collect(
+            Collectors.toList());
+        List<Object> spelValues = calcSpelValues(event, spelList, placeHolder);
+
         String argKey = multiConfigEntry.getKey();
         Object multiArg = calcSpelValues(event, Collections.singletonList(argKey), placeHolder).get(
             0);
@@ -142,16 +147,16 @@ public class TLogManager implements InitializingBean {
                 argKey + " specified argument is not an array or Collection instance");
         }
 
-        List<Collection> collectionArgResults = new ArrayList<>(collectionArg.size());
+        List<Collection> collectionArgResults = new ArrayList<>();
         List<String> argInnerSpels = multiConfigEntry.getValue();
         for (Object collectionArgItem : collectionArg) {
+            Collection<Object> innerCollection = new ArrayList<>(spelValues);
             if (argInnerSpels.isEmpty()) {
-                List<Object> list = new ArrayList<>();
-                list.add(collectionArgItem);
-                collectionArgResults.add(list);
+                innerCollection.add(collectionArgItem);
             } else {
-                collectionArgResults.add(calcSpelValues(collectionArgItem, argInnerSpels));
+                innerCollection.addAll(calcSpelValues(collectionArgItem, argInnerSpels));
             }
+            collectionArgResults.add(innerCollection);
         }
 
         return collectionArgResults;

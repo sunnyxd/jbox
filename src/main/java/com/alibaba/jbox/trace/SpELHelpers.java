@@ -44,10 +44,10 @@ class SpELHelpers {
         return values;
     }
 
-    static List<String> calcSpelValues(Object obj, List<String> spels) {
-        List<String> values = new ArrayList<>(spels.size());
+    static List<Object> calcSpelValues(Object obj, List<String> spels) {
+        List<Object> values = new ArrayList<>(spels.size());
         for (String spel : spels) {
-            String result = SPEL_PARSER.parseExpression(spel).getValue(obj, String.class);
+            Object result = SPEL_PARSER.parseExpression(spel).getValue(obj);
             values.add(result);
         }
 

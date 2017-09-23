@@ -1,16 +1,15 @@
 package com.alibaba.jbox;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Type;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.domain.Address;
-import org.junit.Test;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import org.junit.Test;
 
 /**
  * @author jifang.zjf
@@ -22,8 +21,9 @@ public class DiamondTest {
 
     @Test
     public void test1() throws NoSuchMethodException {
-        Method valueOf = Test1.class.getDeclaredMethod("a", List.class);
-        System.out.println(valueOf.toGenericString());
+
+        //Method valueOf = Test1.class.getDeclaredMethod("a", List.class);
+        //System.out.println(valueOf.toGenericString());
     }
 
     @Test
