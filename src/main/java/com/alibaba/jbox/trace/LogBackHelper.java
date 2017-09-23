@@ -44,7 +44,7 @@ class LogBackHelper {
                 appender.setRollingPolicy(rolling);
 
                 PatternLayoutEncoder layout = new PatternLayoutEncoder();
-                layout.setPattern("[%thread]%m%n");
+                layout.setPattern("%m%n%n");
                 layout.setCharset(Charset.forName(charset));
                 layout.setContext(tLogger.getLoggerContext());
                 layout.start();

@@ -10,6 +10,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
@@ -29,6 +30,7 @@ import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProce
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.util.ReflectionUtils;
 
+import static com.alibaba.jbox.executor.ExecutorManager.counters;
 import static com.alibaba.jbox.utils.JboxUtils.getUsableBeanName;
 import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SINGLETON;
 
@@ -64,10 +66,12 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
             BlockingQueue<Runnable> queue = executor.getQueue();
             logBuilder.append(String.format(
-                "\tgroup:[%s], pool:[%s], active:[%d], core pool:[%d], max pool:[%d], task in queue:[%d], "
+                "\tgroup:[%s], pool:[%s], invoked:[%d], active:[%d], core pool:[%d], max pool:[%d], task in "
+                    + "queue:[%d], "
                     + "remain:[%d]\n",
                 group,
                 executor.getPoolSize(),
+                counters.getOrDefault(group, new AtomicLong(0L)).get(),
                 executor.getActiveCount(),
                 executor.getCorePoolSize(),
                 executor.getMaximumPoolSize(),

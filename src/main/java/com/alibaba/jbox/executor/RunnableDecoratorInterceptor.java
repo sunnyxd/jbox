@@ -6,12 +6,15 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.taobao.eagleeye.EagleEye;
 import lombok.NonNull;
 import org.slf4j.MDC;
+
+import static com.alibaba.jbox.executor.ExecutorManager.counters;
 
 /**
  * @author jifang@alibaba-inc.com
@@ -20,9 +23,12 @@ import org.slf4j.MDC;
  */
 class RunnableDecoratorInterceptor implements InvocationHandler {
 
+    private String group;
+
     private ExecutorService target;
 
-    RunnableDecoratorInterceptor(ExecutorService target) {
+    RunnableDecoratorInterceptor(String group, ExecutorService target) {
+        this.group = group;
         this.target = target;
     }
 
@@ -40,15 +46,16 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
         if (NEED_PROXY_METHODS.contains(methodName)) {
             Object rpcContext = EagleEye.getRpcContext();
             Object firstArg = args[0];
+            AtomicLong counter = counters.computeIfAbsent(group, (k) -> new AtomicLong(0L));
 
             if (firstArg instanceof AsyncRunnable) {
-                args[0] = new AsyncRunnableDecorator((AsyncRunnable)firstArg, rpcContext);
+                args[0] = new AsyncRunnableDecorator(counter, (AsyncRunnable)firstArg, rpcContext);
             } else if (firstArg instanceof AsyncCallable) {
-                args[0] = new AsyncCallableDecorator((AsyncCallable)firstArg, rpcContext);
+                args[0] = new AsyncCallableDecorator(counter, (AsyncCallable)firstArg, rpcContext);
             } else if (firstArg instanceof Runnable) {
-                args[0] = new RunnableDecorator((Runnable)firstArg, rpcContext);
+                args[0] = new RunnableDecorator(counter, (Runnable)firstArg, rpcContext);
             } else if (firstArg instanceof Callable) {
-                args[0] = new CallableDecorator((Callable)firstArg, rpcContext);
+                args[0] = new CallableDecorator(counter, (Callable)firstArg, rpcContext);
             }
         }
 
@@ -58,11 +65,14 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
 
 class RunnableDecorator implements AsyncRunnable {
 
+    private AtomicLong counter;
+
     private Runnable runnable;
 
     private Object rpcContext;
 
-    RunnableDecorator(@NonNull Runnable runnable, Object rpcContext) {
+    RunnableDecorator(AtomicLong counter, @NonNull Runnable runnable, Object rpcContext) {
+        this.counter = counter;
         this.runnable = runnable;
         this.rpcContext = rpcContext;
     }
@@ -76,6 +86,7 @@ class RunnableDecorator implements AsyncRunnable {
         }
         try {
             runnable.run();
+            counter.incrementAndGet();
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
                 MDC.remove(TRACE_ID);
@@ -95,11 +106,14 @@ class RunnableDecorator implements AsyncRunnable {
 
 class CallableDecorator implements AsyncCallable {
 
+    private AtomicLong counter;
+
     private Callable callable;
 
     private Object rpcContext;
 
-    CallableDecorator(@NonNull Callable callable, Object rpcContext) {
+    CallableDecorator(AtomicLong counter, @NonNull Callable callable, Object rpcContext) {
+        this.counter = counter;
         this.callable = callable;
         this.rpcContext = rpcContext;
     }
@@ -112,7 +126,10 @@ class CallableDecorator implements AsyncCallable {
             MDC.put(TRACE_ID, traceId);
         }
         try {
-            return callable.call();
+            Object result = callable.call();
+            counter.incrementAndGet();
+            return result;
+
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
                 MDC.remove(TRACE_ID);
@@ -134,11 +151,14 @@ class CallableDecorator implements AsyncCallable {
 
 class AsyncRunnableDecorator implements AsyncRunnable {
 
+    private AtomicLong counter;
+
     private AsyncRunnable asyncRunnable;
 
     private Object rpcContext;
 
-    AsyncRunnableDecorator(@NonNull AsyncRunnable asyncRunnable, Object rpcContext) {
+    AsyncRunnableDecorator(AtomicLong counter, @NonNull AsyncRunnable asyncRunnable, Object rpcContext) {
+        this.counter = counter;
         this.asyncRunnable = asyncRunnable;
         this.rpcContext = rpcContext;
     }
@@ -152,6 +172,7 @@ class AsyncRunnableDecorator implements AsyncRunnable {
         }
         try {
             asyncRunnable.execute();
+            counter.incrementAndGet();
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
                 MDC.remove(TRACE_ID);
@@ -171,11 +192,14 @@ class AsyncRunnableDecorator implements AsyncRunnable {
 
 class AsyncCallableDecorator implements AsyncCallable {
 
+    private AtomicLong counter;
+
     private AsyncCallable asyncCallable;
 
     private Object rpcContext;
 
-    AsyncCallableDecorator(@NonNull AsyncCallable asyncCallable, Object rpcContext) {
+    AsyncCallableDecorator(AtomicLong counter, @NonNull AsyncCallable asyncCallable, Object rpcContext) {
+        this.counter = counter;
         this.asyncCallable = asyncCallable;
         this.rpcContext = rpcContext;
     }
@@ -188,7 +212,9 @@ class AsyncCallableDecorator implements AsyncCallable {
             MDC.put(TRACE_ID, traceId);
         }
         try {
-            return asyncCallable.execute();
+            Object result = asyncCallable.execute();
+            counter.incrementAndGet();
+            return result;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
                 MDC.remove(TRACE_ID);

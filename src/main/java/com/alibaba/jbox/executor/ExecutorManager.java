@@ -1,6 +1,8 @@
 package com.alibaba.jbox.executor;
 
 import java.lang.reflect.Proxy;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,6 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.PreDestroy;
 
@@ -44,6 +47,8 @@ public class ExecutorManager implements ExecutorLoggerInter {
 
     static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
+    static final Map<String, AtomicLong> counters = new HashMap<>();
+
     // ---- * ThreadPoolExecutor * ---- //
 
     public static ExecutorService newFixedMinMaxThreadPool(String group, int minPoolSize, int maxPoolSize,
@@ -67,7 +72,7 @@ public class ExecutorManager implements ExecutorLoggerInter {
                 threadFactory,
                 rejectHandler);
 
-            return createExecutorProxy(threadPoolExecutor, ExecutorService.class);
+            return createExecutorProxy(group, threadPoolExecutor, ExecutorService.class);
         });
     }
 
@@ -75,7 +80,7 @@ public class ExecutorManager implements ExecutorLoggerInter {
     public static ExecutorService newCachedThreadPool(String group) {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newCachedThreadPool(new NamedThreadFactory(group));
-            return createExecutorProxy(executor, ExecutorService.class);
+            return createExecutorProxy(group, executor, ExecutorService.class);
         });
     }
 
@@ -83,7 +88,7 @@ public class ExecutorManager implements ExecutorLoggerInter {
     public static ExecutorService newFixedThreadPool(String group, int poolSize) {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newFixedThreadPool(poolSize, new NamedThreadFactory(group));
-            return createExecutorProxy(executor, ExecutorService.class);
+            return createExecutorProxy(group, executor, ExecutorService.class);
         });
     }
 
@@ -94,7 +99,7 @@ public class ExecutorManager implements ExecutorLoggerInter {
             ScheduledExecutorService executor = Executors.newScheduledThreadPool(corePoolSize,
                 new NamedThreadFactory(group));
 
-            return createExecutorProxy(executor, ScheduledExecutorService.class);
+            return createExecutorProxy(group, executor, ScheduledExecutorService.class);
         });
     }
 
@@ -102,7 +107,7 @@ public class ExecutorManager implements ExecutorLoggerInter {
     public static ExecutorService newSingleThreadExecutor(String group) {
         return executors.computeIfAbsent(group, (key) -> {
             ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory(group));
-            return createExecutorProxy(executor, ExecutorService.class);
+            return createExecutorProxy(group, executor, ExecutorService.class);
         });
     }
 
@@ -113,11 +118,11 @@ public class ExecutorManager implements ExecutorLoggerInter {
             ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
                 new NamedThreadFactory(group));
 
-            return createExecutorProxy(executor, ScheduledExecutorService.class);
+            return createExecutorProxy(group, executor, ScheduledExecutorService.class);
         });
     }
 
-    private static <T> T createExecutorProxy(ExecutorService target, Class<T> interfaceType) {
+    private static <T> T createExecutorProxy(String group, ExecutorService target, Class<T> interfaceType) {
         if (syncInvoke && !(target instanceof ScheduledExecutorService)) {
             target.shutdownNow();
             target = new SyncInvokeExecutorService();
@@ -127,7 +132,7 @@ public class ExecutorManager implements ExecutorLoggerInter {
             Proxy.newProxyInstance(
                 interfaceType.getClass().getClassLoader(),
                 new Class[] {interfaceType},
-                new RunnableDecoratorInterceptor(target)
+                new RunnableDecoratorInterceptor(group, target)
             )
         );
     }
