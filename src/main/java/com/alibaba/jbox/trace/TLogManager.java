@@ -36,6 +36,7 @@ import org.springframework.core.io.Resource;
 
 import static com.alibaba.jbox.trace.Constants.PLACEHOLDER;
 import static com.alibaba.jbox.trace.Constants.SEPARATOR;
+import static com.alibaba.jbox.trace.Constants.TLOG_EXECUTOR_GROUP;
 import static com.alibaba.jbox.trace.Constants.UTF_8;
 import static com.alibaba.jbox.trace.LogBackHelper.initTLogger;
 import static com.alibaba.jbox.trace.SpELHelpers.calcSpelValues;
@@ -66,11 +67,8 @@ public class TLogManager implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         initTLogger(tLogger, filePath, charset);
-        if (sync) {
-            ExecutorManager.setSyncInvoke(true);
-        }
-        EXECUTOR = ExecutorManager.newFixedMinMaxThreadPool("TLogManager", 3, 12, 1024);
-
+        System.setProperty("sync-" + TLOG_EXECUTOR_GROUP, String.valueOf(sync));
+        EXECUTOR = ExecutorManager.newFixedMinMaxThreadPool(TLOG_EXECUTOR_GROUP, 3, 12, 1024);
     }
 
     void postTLogEvent(TLogEvent event) {

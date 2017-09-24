@@ -7,6 +7,8 @@ package com.alibaba.jbox.trace;
  */
 interface Constants {
 
+    String TLOG_EXECUTOR_GROUP = "com.alibaba.jbox:TLogManager";
+
     String SEPARATOR = "|";
 
     String PLACEHOLDER = "";

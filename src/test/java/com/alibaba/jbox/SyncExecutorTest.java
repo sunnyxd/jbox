@@ -14,7 +14,6 @@ public class SyncExecutorTest {
 
     public static void main(String[] args) {
         ExecutorManager executorManager = new ExecutorManager();
-        executorManager.setSyncInvoke(true);
         ExecutorService executorService = ExecutorManager.newFixedMinMaxThreadPool("ss", 1, 1, 1);
         executorService.submit(new Callable<Object>() {
 

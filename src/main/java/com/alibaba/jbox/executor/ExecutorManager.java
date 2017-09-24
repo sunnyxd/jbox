@@ -1,7 +1,6 @@
 package com.alibaba.jbox.executor;
 
 import java.lang.reflect.Proxy;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -20,6 +19,9 @@ import javax.annotation.PreDestroy;
 
 import com.alibaba.jbox.executor.policy.CallerRunsPolicy;
 import com.alibaba.jbox.scheduler.ScheduleTask;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 /**
  * 线程池管理器(最优雅的方式是注册为一个Spring Bean):
@@ -43,11 +45,9 @@ import com.alibaba.jbox.scheduler.ScheduleTask;
  */
 public class ExecutorManager implements ExecutorLoggerInter {
 
-    private static volatile boolean syncInvoke = false;
-
     static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
-    static final Map<String, AtomicLong> counters = new HashMap<>();
+    static final ConcurrentMap<String, Pair<AtomicLong, AtomicLong>> counters = new ConcurrentHashMap<>();
 
     // ---- * ThreadPoolExecutor * ---- //
 
@@ -123,9 +123,9 @@ public class ExecutorManager implements ExecutorLoggerInter {
     }
 
     private static <T> T createExecutorProxy(String group, ExecutorService target, Class<T> interfaceType) {
-        if (syncInvoke && !(target instanceof ScheduledExecutorService)) {
+        if (isSyncInvoke(group) && !(target instanceof ScheduledExecutorService)) {
             target.shutdownNow();
-            target = new SyncInvokeExecutorService();
+            return interfaceType.cast(new SyncInvokeExecutorService());
         }
 
         return interfaceType.cast(
@@ -137,8 +137,15 @@ public class ExecutorManager implements ExecutorLoggerInter {
         );
     }
 
-    public static void setSyncInvoke(boolean syncInvoke) {
-        ExecutorManager.syncInvoke = syncInvoke;
+    private static final String SYNC_PATTERN = "sync-%s";
+
+    private static boolean isSyncInvoke(String group) {
+        boolean syncAll = Boolean.getBoolean(String.format(SYNC_PATTERN, "all"));
+        if (syncAll) {
+            return true;
+        }
+
+        return Boolean.getBoolean(String.format(SYNC_PATTERN, group));
     }
 
     @PreDestroy
@@ -150,5 +157,29 @@ public class ExecutorManager implements ExecutorLoggerInter {
                 monitor.info("executor [{}] is shutdown", entry.getKey());
                 logger.info("executor [{}] is shutdown", entry.getKey());
             });
+    }
+
+    @Data
+    @AllArgsConstructor
+    static final class Pair<K, V> implements Map.Entry<K, V> {
+
+        private K left;
+
+        private V right;
+
+        @Override
+        public K getKey() {
+            return left;
+        }
+
+        @Override
+        public V getValue() {
+            return right;
+        }
+
+        @Override
+        public V setValue(V value) {
+            return right;
+        }
     }
 }

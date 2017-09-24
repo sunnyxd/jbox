@@ -7,11 +7,21 @@ import java.util.List;
 
 import com.alibaba.jbox.utils.DateUtils;
 
+import org.junit.Test;
+
 /**
  * @author jifang
  * @since 2016/11/17 下午5:31.
  */
 public class DateUtilTest {
+
+
+    @Test
+    public void test(){
+        java.text.DecimalFormat df = new java.text.DecimalFormat("##,###");
+        String format = df.format(456L);
+        System.out.println(format);
+    }
 
     /**
      * 6个线程 跑10万次 timeFormat timeParse 查看耗时 & 正确性

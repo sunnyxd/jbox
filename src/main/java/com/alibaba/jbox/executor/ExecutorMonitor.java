@@ -2,6 +2,7 @@ package com.alibaba.jbox.executor;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.text.DecimalFormat;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
@@ -16,6 +17,7 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import com.alibaba.jbox.executor.ExecutorManager.Pair;
 import com.alibaba.jbox.scheduler.ScheduleTask;
 import com.alibaba.jbox.scheduler.TaskScheduler;
 import com.alibaba.jbox.spring.AbstractApplicationContextAware;
@@ -31,6 +33,7 @@ import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.util.ReflectionUtils;
 
 import static com.alibaba.jbox.executor.ExecutorManager.counters;
+import static com.alibaba.jbox.executor.ExecutorManager.executors;
 import static com.alibaba.jbox.utils.JboxUtils.getUsableBeanName;
 import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SINGLETON;
 
@@ -53,9 +56,11 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
     @Override
     public void invoke() throws Exception {
 
-        StringBuilder logBuilder = new StringBuilder(1000);
+        StringBuilder logBuilder = new StringBuilder(128);
+        long count = executors.entrySet().stream().filter(
+            entry -> !(entry.getValue() instanceof SyncInvokeExecutorService)).count();
         logBuilder.append("executors group [")
-            .append(ExecutorManager.executors.size())
+            .append(count)
             .append("]:\n");
 
         ExecutorManager.executors.forEach((group, executorProxy) -> {
@@ -64,15 +69,19 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
                 return;
             }
 
+            Pair<AtomicLong, AtomicLong> pair = counters.getOrDefault(group,
+                new Pair<>(new AtomicLong(0L), new AtomicLong(0L)));
             BlockingQueue<Runnable> queue = executor.getQueue();
             logBuilder.append(String.format(
-                "\tgroup:[%s], pool:[%s], invoked:[%d], active:[%d], core pool:[%d], max pool:[%d], task in "
+                "\tgroup:[%s], pool:[%s], active:[%d], successor:[%s], failure:[%s], core pool:[%d], max pool:[%d], "
+                    + "task in "
                     + "queue:[%d], "
                     + "remain:[%d]\n",
                 group,
                 executor.getPoolSize(),
-                counters.getOrDefault(group, new AtomicLong(0L)).get(),
                 executor.getActiveCount(),
+                numberFormat(pair.getLeft().get()),
+                numberFormat(pair.getRight().get()),
                 executor.getCorePoolSize(),
                 executor.getMaximumPoolSize(),
                 queue.size(),
@@ -204,6 +213,10 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
         beanFactory.getBean(TaskScheduler.class).register(this);
+    }
+
+    private String numberFormat(Object obj) {
+        return new DecimalFormat("##,###").format(obj);
     }
 
     public void setPeriod(long period) {

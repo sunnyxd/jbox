@@ -1,16 +1,18 @@
 package com.alibaba.jbox.scheduler;
 
-import com.alibaba.jbox.executor.ExecutorManager;
-import lombok.NonNull;
-import org.apache.commons.lang3.tuple.Pair;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
+import com.alibaba.jbox.executor.ExecutorManager;
+
+import lombok.NonNull;
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * @author jifang
@@ -23,7 +25,8 @@ public class TaskScheduler {
      */
     private static final int BASE_TIME_FRAGMENT = 100;
 
-    private static final ScheduledExecutorService executor = ExecutorManager.newSingleThreadScheduledExecutor("jbox:task-scheduler");
+    private static final ScheduledExecutorService executor = ExecutorManager.newSingleThreadScheduledExecutor(
+        "com.alibaba.jbox:TaskScheduler");
 
     private static final ConcurrentMap<ScheduleTask, Pair<AtomicLong, Long>> taskMap = new ConcurrentHashMap<>();
 
@@ -45,8 +48,8 @@ public class TaskScheduler {
     @PostConstruct
     public void start() {
         executor.scheduleAtFixedRate(this::triggerTask,
-                invokeOnStart ? 0 : BASE_TIME_FRAGMENT,
-                BASE_TIME_FRAGMENT, TimeUnit.MILLISECONDS);
+            invokeOnStart ? 0 : BASE_TIME_FRAGMENT,
+            BASE_TIME_FRAGMENT, TimeUnit.MILLISECONDS);
 
         ScheduleTask.SCHEDULE_TASK_LOGGER.info("TaskScheduler Start ...");
     }
