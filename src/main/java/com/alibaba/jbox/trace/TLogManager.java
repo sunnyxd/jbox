@@ -36,13 +36,13 @@ import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.io.Resource;
 
+import static com.alibaba.jbox.trace.Constants.DEFAULT_MAX_HISTORY;
 import static com.alibaba.jbox.trace.Constants.PLACEHOLDER;
 import static com.alibaba.jbox.trace.Constants.SEPARATOR;
 import static com.alibaba.jbox.trace.Constants.TLOG_EXECUTOR_GROUP;
 import static com.alibaba.jbox.trace.Constants.UTF_8;
 import static com.alibaba.jbox.trace.LogBackHelper.initTLogger;
 import static com.alibaba.jbox.trace.SpELHelpers.calcSpelValues;
-import static com.alibaba.jbox.trace.TraceAspect.traceLogger;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
@@ -55,29 +55,33 @@ public class TLogManager implements InitializingBean {
 
     private final Logger tLogger = LoggerFactory.getLogger(TLogManager.class);
 
-    private static ExecutorService EXECUTOR;
+    private static ExecutorService EXECUTOR_SERVICE;
+
+    private int maxHistory = DEFAULT_MAX_HISTORY;
 
     private String placeHolder = PLACEHOLDER;
 
-    private String filePath;
-
-    private boolean sync = true;
+    private List<TLogFilter> filters;
 
     private String charset = UTF_8;
+
+    private boolean sync = false;
+
+    private String filePath;
 
     @PostConstruct
     @Override
     public void afterPropertiesSet() throws Exception {
-        initTLogger(tLogger, filePath, charset);
-        System.setProperty("sync-" + TLOG_EXECUTOR_GROUP, String.valueOf(sync));
-        EXECUTOR = ExecutorManager.newFixedMinMaxThreadPool(TLOG_EXECUTOR_GROUP, 3, 12, 1024);
+        initTLogger(tLogger, filePath, charset, maxHistory, filters);
+        ExecutorManager.setSyncInvoke(TLOG_EXECUTOR_GROUP, sync);
+        EXECUTOR_SERVICE = ExecutorManager.newFixedMinMaxThreadPool(TLOG_EXECUTOR_GROUP, 3, 12, 1024);
     }
 
     void postTLogEvent(TLogEvent event) {
-        EXECUTOR.submit(new TLogEventParser(event));
+        EXECUTOR_SERVICE.submit(new TLogEventParser(event));
     }
 
-    private final class TLogEventParser implements AsyncRunnable {
+    final class TLogEventParser implements AsyncRunnable {
 
         private TLogEvent event;
 
@@ -87,38 +91,34 @@ public class TLogManager implements InitializingBean {
 
         @Override
         public void execute() {
-            try {
-                List<Object> logEntity = new ArrayList<>();
-                logEntity.add(DateUtils.millisFormatFromMillis(event.getInvokeTime()));
-                logEntity.add(event.getInvokeThread());
-                logEntity.add(event.getCostTime());
-                logEntity.add(event.getClassName());
-                logEntity.add(event.getMethodName());
-                logEntity.add(nullToPlaceholder(event.getArgs(), JSONObject::toJSONString));
-                logEntity.add(nullToPlaceholder(event.getResult(), JSONObject::toJSONString));
-                logEntity.add(nullToPlaceholder(event.getException(), JSONObject::toJSONString));
-                logEntity.add(event.getServerIp());
-                logEntity.add(nullToPlaceholder(event.getTraceId()));
-                logEntity.add(event.getClientName());
-                logEntity.add(event.getClientIp());
+            List<Object> logEntity = new ArrayList<>();
+            logEntity.add(DateUtils.millisFormatFromMillis(event.getInvokeTime()));
+            logEntity.add(event.getInvokeThread());
+            logEntity.add(event.getCostTime());
+            logEntity.add(event.getClassName());
+            logEntity.add(event.getMethodName());
+            logEntity.add(nullToPlaceholder(event.getArgs(), JSONObject::toJSONString));
+            logEntity.add(nullToPlaceholder(event.getResult(), JSONObject::toJSONString));
+            logEntity.add(nullToPlaceholder(event.getException(), JSONObject::toJSONString));
+            logEntity.add(event.getServerIp());
+            logEntity.add(nullToPlaceholder(event.getTraceId()));
+            logEntity.add(event.getClientName());
+            logEntity.add(event.getClientIp());
 
-                String methodKey = event.getClassName() + ":" + event.getMethodName();
-                List<SpELConfigEntry> spels = METHOD_SPEL_MAP.getOrDefault(methodKey, Collections.emptyList());
+            String methodKey = event.getClassName() + ":" + event.getMethodName();
+            List<SpELConfigEntry> spels = METHOD_SPEL_MAP.getOrDefault(methodKey, Collections.emptyList());
 
-                List<Collection> collectionArgValues = spels.stream().filter(SpELConfigEntry::isMulti).findAny()
-                    .map(multiEntry -> parsMultiConfig(new ArrayList<>(spels), multiEntry, event))
-                    .orElseGet(() -> parsSingleConfig(spels, event));
+            List<Collection> collectionArgValues = spels.stream().filter(SpELConfigEntry::isMulti).findAny()
+                .map(multiEntry -> parsMultiConfig(new ArrayList<>(spels), multiEntry, event))
+                .orElseGet(() -> parsSingleConfig(spels, event));
 
-                // 针对每一个为Collection的#arg都打一条log
-                for (Collection collectionArgValue : collectionArgValues) {
-                    LinkedList<Object> logEntityCopy = new LinkedList<>(logEntity);
-                    logEntityCopy.addAll(collectionArgValue);
+            // 针对每一个为Collection的#arg都打一条log
+            for (Collection collectionArgValue : collectionArgValues) {
+                LinkedList<Object> logEntityCopy = new LinkedList<>(logEntity);
+                logEntityCopy.addAll(collectionArgValue);
 
-                    String content = Joiner.on(SEPARATOR).useForNull(placeHolder).join(logEntityCopy);
-                    TLogManager.this.tLogger.trace("{}", content);
-                }
-            } catch (Throwable e) {
-                traceLogger.error("parse TLogEvent:[{}] failed.", event, e);
+                String content = Joiner.on(SEPARATOR).useForNull(placeHolder).join(logEntityCopy);
+                TLogManager.this.tLogger.trace("{}", content);
             }
         }
 
@@ -236,6 +236,21 @@ public class TLogManager implements InitializingBean {
         this.placeHolder = placeHolder;
     }
 
+    public void setMaxHistory(int maxHistory) {
+        this.maxHistory = maxHistory;
+    }
+
+    public void setFilters(List<TLogFilter> filters) {
+        this.filters = filters;
+    }
+
+    public void addFilter(TLogFilter filter) {
+        if (this.filters == null) {
+            this.filters = new LinkedList<>();
+        }
+        this.filters.add(filter);
+    }
+
     @ToString
     public static class SpELConfigEntry implements Map.Entry<String, List<String>> {
 
@@ -289,5 +304,16 @@ public class TLogManager implements InitializingBean {
         public List<String> setValue(List<String> value) {
             return this.value = value;
         }
+    }
+
+    public interface TLogFilter {
+
+        enum FilterReply {
+            DENY,
+            NEUTRAL,
+            ACCEPT;
+        }
+
+        FilterReply decide(String formattedMessage) throws Exception;
     }
 }

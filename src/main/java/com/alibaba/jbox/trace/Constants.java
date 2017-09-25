@@ -9,6 +9,8 @@ interface Constants {
 
     String TLOG_EXECUTOR_GROUP = "com.alibaba.jbox:TLogManager";
 
+    int DEFAULT_MAX_HISTORY = 15;
+
     String SEPARATOR = "|";
 
     String PLACEHOLDER = "";

@@ -91,6 +91,7 @@ class RunnableDecorator implements AsyncRunnable {
             runnable.run();
             counter.getLeft().incrementAndGet();
         } catch (Throwable e) {
+            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             counter.getRight().incrementAndGet();
             throw e;
         } finally {
@@ -137,6 +138,7 @@ class CallableDecorator implements AsyncCallable {
             return result;
 
         } catch (Throwable e) {
+            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             counter.getRight().incrementAndGet();
             throw e;
         } finally {
@@ -184,6 +186,7 @@ class AsyncRunnableDecorator implements AsyncRunnable {
             asyncRunnable.execute();
             counter.getLeft().incrementAndGet();
         } catch (Throwable e) {
+            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             counter.getRight().incrementAndGet();
             throw e;
         } finally {
@@ -230,6 +233,7 @@ class AsyncCallableDecorator implements AsyncCallable {
             counter.getLeft().incrementAndGet();
             return result;
         } catch (Throwable e) {
+            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             counter.getRight().incrementAndGet();
             throw e;
         } finally {

@@ -45,9 +45,11 @@ import lombok.Data;
  */
 public class ExecutorManager implements ExecutorLoggerInter {
 
+    static final ConcurrentMap<String, Pair<AtomicLong, AtomicLong>> counters = new ConcurrentHashMap<>();
+
     static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
-    static final ConcurrentMap<String, Pair<AtomicLong, AtomicLong>> counters = new ConcurrentHashMap<>();
+    private static final String SYNC_PATTERN = "sync-%s";
 
     // ---- * ThreadPoolExecutor * ---- //
 
@@ -137,8 +139,6 @@ public class ExecutorManager implements ExecutorLoggerInter {
         );
     }
 
-    private static final String SYNC_PATTERN = "sync-%s";
-
     private static boolean isSyncInvoke(String group) {
         boolean syncAll = Boolean.getBoolean(String.format(SYNC_PATTERN, "all"));
         if (syncAll) {
@@ -146,6 +146,10 @@ public class ExecutorManager implements ExecutorLoggerInter {
         }
 
         return Boolean.getBoolean(String.format(SYNC_PATTERN, group));
+    }
+
+    public static void setSyncInvoke(String group, boolean sync) {
+        System.setProperty(String.format(SYNC_PATTERN, group), String.valueOf(sync));
     }
 
     @PreDestroy
