@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ import javax.annotation.PostConstruct;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.parser.Feature;
 import com.alibaba.jbox.executor.AsyncRunnable;
 import com.alibaba.jbox.executor.ExecutorManager;
 import com.alibaba.jbox.utils.DateUtils;
@@ -177,11 +179,41 @@ public class TLogManager implements InitializingBean {
 
     public void setSpelResource(Resource jsonResource) throws IOException {
         String json = CharStreams.toString(new InputStreamReader(jsonResource.getInputStream()));
-        JSONObject jsonObject = JSONObject.parseObject(json);
+
+        // 支持乱序引用config
+        Map<String, String> relativeConfig = new HashMap<>();
+
+        Map<String, Object> jsonObject = JSONObject.parseObject(json, Feature.AutoCloseSource);
         for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
             String key = entry.getKey();
             List<SpELConfigEntry> spels = METHOD_SPEL_MAP.computeIfAbsent(key, k -> new LinkedList<>());
-            spels.addAll(SpELConfigEntry.parseEntriesFromJsonArray((JSONArray)entry.getValue()));
+            Object value = entry.getValue();
+            // 引用其他的配置
+            if (value instanceof String && ((String)value).startsWith("#")) {
+                relativeConfig.put(key, ((String)value).substring(1));
+            }
+            // 新创建的配置
+            else if (value instanceof JSONArray) {
+                List<SpELConfigEntry> newConfigs = SpELConfigEntry.parseEntriesFromJsonArray((JSONArray)value);
+                spels.addAll(newConfigs);
+            }
+            // 错误的配置语法
+            else {
+                throw new TraceException(
+                    "your config '" + value
+                        + "' is not relative defined config or not a new config. please check your config syntax is "
+                        + "correct or mail to jifang.zjf@alibaba-inc.com.");
+            }
+        }
+
+        // 将引用的配置注册进去
+        for (Map.Entry<String, String> entry : relativeConfig.entrySet()) {
+            List<SpELConfigEntry> definedConfig = METHOD_SPEL_MAP.computeIfAbsent(entry.getValue(),
+                (key) -> {
+                    throw new TraceException("relative config '" + key + "' is not defined.");
+                });
+
+            METHOD_SPEL_MAP.computeIfAbsent(entry.getKey(), key -> new LinkedList<>()).addAll(definedConfig);
         }
     }
 

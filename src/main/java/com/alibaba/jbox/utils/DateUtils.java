@@ -19,7 +19,7 @@ public class DateUtils {
 
     private static final String datePattern = "yyyy-MM-dd";
 
-    private static final String millisPattern = "yyyy-MM-dd HH:mm:ss.SSS";
+    private static final String millisPattern = "yyyy-MM-dd HH:mm:ss,SSS";
 
     private static final ThreadLocal<DateFormat> timeFormatterMap = ThreadLocal.withInitial(
         () -> new SimpleDateFormat(timePattern));
