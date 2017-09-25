@@ -118,7 +118,7 @@ public class TLogManager implements InitializingBean {
                     TLogManager.this.tLogger.trace("{}", content);
                 }
             } catch (Throwable e) {
-                traceLogger.error("trace Event:[{}] error.", event, e);
+                traceLogger.error("parse TLogEvent:[{}] failed.", event, e);
             }
         }
 
@@ -135,8 +135,7 @@ public class TLogManager implements InitializingBean {
         List<Object> spelValues = calcSpelValues(event, spelList, placeHolder);
 
         String argKey = multiConfigEntry.getKey();
-        Object multiArg = calcSpelValues(event, Collections.singletonList(argKey), placeHolder).get(
-            0);
+        Object multiArg = calcSpelValues(event, Collections.singletonList(argKey), placeHolder).get(0);
 
         Collection collectionArg;
         if (multiArg instanceof Collection) {
@@ -177,8 +176,8 @@ public class TLogManager implements InitializingBean {
         return nullableObj == null ? placeHolder : processor.apply(nullableObj);
     }
 
-    public void setSpelResource(Resource jsonResource) throws IOException {
-        String json = CharStreams.toString(new InputStreamReader(jsonResource.getInputStream()));
+    public void setSpelResource(Resource spelResource) throws IOException {
+        String json = CharStreams.toString(new InputStreamReader(spelResource.getInputStream()));
 
         // 支持乱序引用config
         Map<String, String> relativeConfig = new HashMap<>();

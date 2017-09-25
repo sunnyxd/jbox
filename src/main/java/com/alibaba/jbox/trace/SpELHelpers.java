@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.util.ReflectionUtils;
@@ -25,13 +24,13 @@ import static com.alibaba.jbox.trace.Constants.KEY_RESULT;
  */
 class SpELHelpers {
 
-    private static final ExpressionParser SPEL_PARSER = new SpelExpressionParser();
+    private static final SpelExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
-    private static Set<Method> SPEL_METHODS = new ConcurrentSkipListSet<>();
+    private static Set<Method> CUSTOM_METHODS = new ConcurrentSkipListSet<>();
 
     static {
         Method isNotEmpty = ReflectionUtils.findMethod(SpELHelpers.class, "isNotEmpty", Collection.class);
-        SPEL_METHODS.add(isNotEmpty);
+        CUSTOM_METHODS.add(isNotEmpty);
     }
 
     static List<Object> calcSpelValues(TLogEvent event, List<String> spels, String placeHolder) {
@@ -44,9 +43,7 @@ class SpELHelpers {
             context.setVariable(KEY_PLACEHOLDER, placeHolder);
             context.setVariable(KEY_PH, placeHolder);
             // 将自定义函数导入spel执行环境
-            for (Method method : SPEL_METHODS) {
-                context.registerFunction(method.getName(), method);
-            }
+            registerFunctions(context);
             values = new ArrayList<>(spels.size());
             for (String spel : spels) {
                 Object judgeResult = SPEL_PARSER.parseExpression(spel).getValue(context);
@@ -60,12 +57,21 @@ class SpELHelpers {
 
     static List<Object> calcSpelValues(Object obj, List<String> spels) {
         List<Object> values = new ArrayList<>(spels.size());
+        // 将自定义函数导入spel执行环境
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        registerFunctions(context);
         for (String spel : spels) {
-            Object result = SPEL_PARSER.parseExpression(spel).getValue(obj);
+            Object result = SPEL_PARSER.parseExpression(spel).getValue(context, obj);
             values.add(result);
         }
 
         return values;
+    }
+
+    private static void registerFunctions(StandardEvaluationContext context) {
+        for (Method method : CUSTOM_METHODS) {
+            context.registerFunction(method.getName(), method);
+        }
     }
 
     public static <T> Collection<T> isNotEmpty(Collection<T> collection) {
