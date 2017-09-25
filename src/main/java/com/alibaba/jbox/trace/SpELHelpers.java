@@ -1,13 +1,14 @@
 package com.alibaba.jbox.trace;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+import com.google.common.base.Preconditions;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.util.ReflectionUtils;
@@ -22,15 +23,27 @@ import static com.alibaba.jbox.trace.Constants.KEY_RESULT;
  * @version 1.0
  * @since 2017/9/23 08:03:00.
  */
-class SpELHelpers {
+public class SpELHelpers {
 
     private static final SpelExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
-    private static Set<Method> CUSTOM_METHODS = new ConcurrentSkipListSet<>();
+    private static List<Method> CUSTOM_METHODS = new CopyOnWriteArrayList<>();
 
     static {
         Method isNotEmpty = ReflectionUtils.findMethod(SpELHelpers.class, "isNotEmpty", Collection.class);
+        Method ifNotEmptyGet = ReflectionUtils.findMethod(SpELHelpers.class, "ifNotEmptyGet", List.class, int.class);
+        Method ifEmptyGetDefault = ReflectionUtils.findMethod(SpELHelpers.class, "ifEmptyGetDefault", List.class,
+            Object.class, int.class);
         CUSTOM_METHODS.add(isNotEmpty);
+        CUSTOM_METHODS.add(ifNotEmptyGet);
+        CUSTOM_METHODS.add(ifEmptyGetDefault);
+    }
+
+    public void registerFunction(Method staticMethod) {
+        Preconditions.checkArgument(Modifier.isStatic(staticMethod.getModifiers()),
+            "method [%s] is not static, SpEL is not support.", staticMethod);
+
+        CUSTOM_METHODS.add(staticMethod);
     }
 
     static List<Object> calcSpelValues(TLogEvent event, List<String> spels, String placeHolder) {
@@ -68,16 +81,33 @@ class SpELHelpers {
         return values;
     }
 
-    private static void registerFunctions(StandardEvaluationContext context) {
+    static void registerFunctions(StandardEvaluationContext context) {
         for (Method method : CUSTOM_METHODS) {
             context.registerFunction(method.getName(), method);
         }
     }
 
+    /**
+     * 注册到SpEL环境中的函数, 尽量减少其他的依赖
+     *
+     * @param collection
+     * @param <T>
+     * @return
+     */
     public static <T> Collection<T> isNotEmpty(Collection<T> collection) {
         if (collection != null && !collection.isEmpty()) {
             return collection;
         }
         return null;
+    }
+
+    public static <T> T ifNotEmptyGet(List<T> list, int index) {
+        list = (List<T>)isNotEmpty(list);
+        return list == null ? null : list.get(index);
+    }
+
+    public static <T> T ifEmptyGetDefault(List<T> list, T defaultObj, int index) {
+        T obj = ifNotEmptyGet(list, index);
+        return obj == null ? defaultObj : obj;
     }
 }
