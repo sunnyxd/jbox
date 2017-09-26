@@ -124,8 +124,8 @@ public class TraceAspect {
             Method abstractMethod = JboxUtils.getAbstractMethod(joinPoint);
             Method implMethod = JboxUtils.getImplMethod(joinPoint);
 
-            String className = abstractMethod.getDeclaringClass().getName();
-            String methodName = abstractMethod.getName();
+            String className = implMethod.getDeclaringClass().getName();
+            String methodName = implMethod.getName();
 
             event.setClassName(className);
             event.setMethodName(methodName);
@@ -154,12 +154,13 @@ public class TraceAspect {
 
             long costTime = System.currentTimeMillis() - start;
             event.setCostTime(costTime);
+
             /*
              * @since 1.1 logger invoke elapsed time & parameters
              */
-            Trace trace = implMethod.getAnnotation(Trace.class);
-            Object[] config = getConfig(methodKey, trace);
             if (elapsed) {
+                Trace trace = implMethod.getAnnotation(Trace.class);
+                Object[] config = getConfig(methodKey, trace);
                 if (isNeedLogger((Long)config[0], costTime)) {
                     String logContent = buildLogContent(abstractMethod, costTime, args, result);
 

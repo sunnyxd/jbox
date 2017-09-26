@@ -73,19 +73,20 @@ public class TLogManager extends TLogManagerConfig implements InitializingBean {
 
         @Override
         public void execute() {
-            List<Object> logEntity = new ArrayList<>();
+            List<Object> logEntity = new LinkedList<>();
             logEntity.add(DateUtils.millisFormatFromMillis(event.getInvokeTime()));
             logEntity.add(event.getInvokeThread());
             logEntity.add(event.getCostTime());
             logEntity.add(event.getClassName());
             logEntity.add(event.getMethodName());
-            logEntity.add(nullToPlaceholder(event.getArgs(), JSONObject::toJSONString));
-            logEntity.add(nullToPlaceholder(event.getResult(), JSONObject::toJSONString));
-            logEntity.add(nullToPlaceholder(event.getException(), JSONObject::toJSONString));
+
+            logEntity.add(ifNotNull(event.getArgs(), JSONObject::toJSONString));        // nullable
+            logEntity.add(ifNotNull(event.getResult(), JSONObject::toJSONString));      // nullable
+            logEntity.add(ifNotNull(event.getException(), JSONObject::toJSONString));   // nullable
             logEntity.add(event.getServerIp());
-            logEntity.add(nullToPlaceholder(event.getTraceId()));
-            logEntity.add(event.getClientName());
-            logEntity.add(event.getClientIp());
+            logEntity.add(event.getTraceId());                                          // nullable
+            logEntity.add(event.getClientName());                                       // nullable
+            logEntity.add(event.getClientIp());                                         // nullable
 
             String methodKey = event.getClassName() + ":" + event.getMethodName();
             List<SpELConfigEntry> spels = getMETHOD_SPEL_MAP().getOrDefault(methodKey, Collections.emptyList());
@@ -94,7 +95,7 @@ public class TLogManager extends TLogManagerConfig implements InitializingBean {
                 .map(multiEntry -> parsMultiConfig(new ArrayList<>(spels), multiEntry, event))
                 .orElseGet(() -> parsSingleConfig(spels, event));
 
-            // 针对每一个为Collection的#arg都打一条log
+            // 为每一个类型为'java.util.Collection'类型的param都打一条log
             for (Collection collectionArgValue : collectionArgValues) {
                 LinkedList<Object> logEntityCopy = new LinkedList<>(logEntity);
                 logEntityCopy.addAll(collectionArgValue);
@@ -150,11 +151,7 @@ public class TLogManager extends TLogManagerConfig implements InitializingBean {
         return Collections.singletonList(calcSpelValues(event, argSpels, getPlaceHolder()));
     }
 
-    private String nullToPlaceholder(Object nullableObj) {
-        return nullToPlaceholder(nullableObj, Object::toString);
-    }
-
-    private String nullToPlaceholder(Object nullableObj, Function<Object, String> processor) {
-        return nullableObj == null ? getPlaceHolder() : processor.apply(nullableObj);
+    private String ifNotNull(Object nullableObj, Function<Object, String> processor) {
+        return nullableObj == null ? null : processor.apply(nullableObj);
     }
 }

@@ -45,11 +45,11 @@ import lombok.Data;
  */
 public class ExecutorManager implements ExecutorLoggerInter {
 
-    static final ConcurrentMap<String, Pair<AtomicLong, AtomicLong>> counters = new ConcurrentHashMap<>();
-
-    static final ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
-
     private static final String SYNC_PATTERN = "sync-%s";
+
+    static ConcurrentMap<String, Pair<AtomicLong, AtomicLong>> counters = new ConcurrentHashMap<>();
+
+    static ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
     // ---- * ThreadPoolExecutor * ---- //
 
