@@ -5,7 +5,7 @@ import java.util.List;
 
 import com.alibaba.jbox.script.ScriptExecutor;
 import com.alibaba.jbox.trace.TLogManager.TLogEventParser;
-import com.alibaba.jbox.trace.TLogManager.TLogFilter;
+import com.alibaba.jbox.trace.TLogManagerConfig.TLogFilter;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
@@ -17,6 +17,7 @@ import ch.qos.logback.core.spi.FilterReply;
 import com.ali.com.google.common.base.Strings;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.alibaba.jbox.trace.TraceAspect.traceLogger;
 
@@ -27,43 +28,52 @@ import static com.alibaba.jbox.trace.TraceAspect.traceLogger;
  */
 class LogBackHelper {
 
-    static void initTLogger(Logger logger, String filePath, String charset, int maxHistory, List<TLogFilter> filters) {
+    static Logger initTLogger(String loggerName, String filePath, String charset, int maxHistory,
+                              List<TLogFilter> filters) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(loggerName), "log name can't be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(filePath), "log file can't be empty!");
 
+        Logger logger = LoggerFactory.getLogger(loggerName);
         try {
             Class.forName("ch.qos.logback.classic.Logger");
             if (logger instanceof ch.qos.logback.classic.Logger) {
                 ch.qos.logback.classic.Logger tLogger = (ch.qos.logback.classic.Logger)logger;
+
+                // init appender
                 RollingFileAppender<ILoggingEvent> appender = new RollingFileAppender<>();
                 appender.setName(tLogger.getName());
                 appender.setContext(tLogger.getLoggerContext());
                 appender.setFile(filePath);
                 appender.setAppend(true);
 
-                TimeBasedRollingPolicy rolling = new TimeBasedRollingPolicy();
-                rolling.setParent(appender);
-                rolling.setFileNamePattern(filePath + ".%d{yyyy-MM-dd}");
-                rolling.setMaxHistory(maxHistory);
-                rolling.setContext(tLogger.getLoggerContext());
-                rolling.start();
-                appender.setRollingPolicy(rolling);
+                // init policy
+                TimeBasedRollingPolicy policy = new TimeBasedRollingPolicy();
+                policy.setParent(appender);
+                policy.setFileNamePattern(filePath + ".%d{yyyy-MM-dd}");
+                policy.setMaxHistory(maxHistory);
+                policy.setContext(tLogger.getLoggerContext());
+                policy.start();
 
-                PatternLayoutEncoder layout = new PatternLayoutEncoder();
-                layout.setPattern("%m%n%n");
-                layout.setCharset(Charset.forName(charset));
-                layout.setContext(tLogger.getLoggerContext());
-                layout.start();
-                appender.setEncoder(layout);
+                // init encoder
+                PatternLayoutEncoder encoder = new PatternLayoutEncoder();
+                encoder.setPattern("%m%n%n");
+                encoder.setCharset(Charset.forName(charset));
+                encoder.setContext(tLogger.getLoggerContext());
+                encoder.start();
 
-                registerBuildInFilter(appender);
-                registerFilters(appender, filters);
+                // start appender
+                appender.setRollingPolicy(policy);
+                appender.setEncoder(encoder);
+                registerBuildInFilters(appender);
+                registerCustomFilters(appender, filters);
                 appender.start();
 
+                // start logger
                 tLogger.detachAndStopAllAppenders();
                 tLogger.setAdditive(false);
                 tLogger.setLevel(Level.ALL);
                 tLogger.addAppender(appender);
-                ScriptExecutor.register("logbackAppender", appender);
+                ScriptExecutor.register(tLogger.getName(), appender);
             } else {
                 traceLogger.warn("application not used Logback implementation,"
                     + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
@@ -73,9 +83,11 @@ class LogBackHelper {
                 "class 'ch.qos.logback.classic.Logger' not found(application not used Logback implementation),"
                     + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
         }
+
+        return logger;
     }
 
-    private static void registerBuildInFilter(RollingFileAppender<ILoggingEvent> appender) {
+    private static void registerBuildInFilters(RollingFileAppender<ILoggingEvent> appender) {
         appender.addFilter(new Filter<ILoggingEvent>() {
             @Override
             public FilterReply decide(ILoggingEvent event) {
@@ -93,7 +105,7 @@ class LogBackHelper {
         });
     }
 
-    private static void registerFilters(RollingFileAppender<ILoggingEvent> appender, List<TLogFilter> filters) {
+    private static void registerCustomFilters(RollingFileAppender<ILoggingEvent> appender, List<TLogFilter> filters) {
         if (filters == null || filters.isEmpty()) {
             return;
         }

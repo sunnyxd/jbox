@@ -9,7 +9,15 @@ interface Constants {
 
     String TLOG_EXECUTOR_GROUP = "com.alibaba.jbox:TLogManager";
 
+    String LOG_SUFFIX = ".log";
+
     int DEFAULT_MAX_HISTORY = 15;
+
+    int MAX_THREAD_POOL_SIZE = 12;
+
+    int MIN_THREAD_POOL_SIZE = 3;
+
+    int DEFAULT_RUNNABLE_Q_SIZE = 1024;
 
     String SEPARATOR = "|";
 

@@ -1,46 +1,27 @@
 package com.alibaba.jbox.trace;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
-
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.Feature;
 import com.alibaba.jbox.executor.AsyncRunnable;
 import com.alibaba.jbox.executor.ExecutorManager;
 import com.alibaba.jbox.utils.DateUtils;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.io.CharStreams;
-import lombok.ToString;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.core.io.Resource;
 
-import static com.alibaba.jbox.trace.Constants.DEFAULT_MAX_HISTORY;
-import static com.alibaba.jbox.trace.Constants.PLACEHOLDER;
 import static com.alibaba.jbox.trace.Constants.SEPARATOR;
 import static com.alibaba.jbox.trace.Constants.TLOG_EXECUTOR_GROUP;
-import static com.alibaba.jbox.trace.Constants.UTF_8;
 import static com.alibaba.jbox.trace.LogBackHelper.initTLogger;
 import static com.alibaba.jbox.trace.SpELHelpers.calcSpelValues;
 
@@ -49,36 +30,37 @@ import static com.alibaba.jbox.trace.SpELHelpers.calcSpelValues;
  * @version 1.0
  * @since 2017/9/22 15:50:00.
  */
-public class TLogManager implements InitializingBean {
+public class TLogManager extends TLogManagerConfig implements InitializingBean {
 
-    private final ConcurrentMap<String, List<SpELConfigEntry>> METHOD_SPEL_MAP = new ConcurrentHashMap<>();
+    private static final long serialVersionUID = -4553832981389212025L;
 
-    private final Logger tLogger = LoggerFactory.getLogger(TLogManager.class);
+    private static ExecutorService executor;
 
-    private static ExecutorService EXECUTOR_SERVICE;
+    private Logger tLogger;
 
-    private int maxHistory = DEFAULT_MAX_HISTORY;
+    public TLogManager() {
+        super();
+    }
 
-    private String placeHolder = PLACEHOLDER;
-
-    private List<TLogFilter> filters;
-
-    private String charset = UTF_8;
-
-    private boolean sync = false;
-
-    private String filePath;
-
-    @PostConstruct
     @Override
     public void afterPropertiesSet() throws Exception {
-        initTLogger(tLogger, filePath, charset, maxHistory, filters);
-        ExecutorManager.setSyncInvoke(TLOG_EXECUTOR_GROUP, sync);
-        EXECUTOR_SERVICE = ExecutorManager.newFixedMinMaxThreadPool(TLOG_EXECUTOR_GROUP, 3, 12, 1024);
+        // init executor
+        if (executor == null) {
+            ExecutorManager.setSyncInvoke(TLOG_EXECUTOR_GROUP, isSync());
+
+            executor = ExecutorManager.newFixedMinMaxThreadPool(
+                TLOG_EXECUTOR_GROUP, getMinPoolSize(), getMaxPoolSize(),
+                getRunnableQSize());
+        }
+
+        // init tLogger
+        if (tLogger == null) {
+            tLogger = initTLogger(getUniqueLoggerName(), getFilePath(), getCharset(), getMaxHistory(), getFilters());
+        }
     }
 
     void postTLogEvent(TLogEvent event) {
-        EXECUTOR_SERVICE.submit(new TLogEventParser(event));
+        executor.submit(new TLogEventParser(event));
     }
 
     final class TLogEventParser implements AsyncRunnable {
@@ -106,7 +88,7 @@ public class TLogManager implements InitializingBean {
             logEntity.add(event.getClientIp());
 
             String methodKey = event.getClassName() + ":" + event.getMethodName();
-            List<SpELConfigEntry> spels = METHOD_SPEL_MAP.getOrDefault(methodKey, Collections.emptyList());
+            List<SpELConfigEntry> spels = getMETHOD_SPEL_MAP().getOrDefault(methodKey, Collections.emptyList());
 
             List<Collection> collectionArgValues = spels.stream().filter(SpELConfigEntry::isMulti).findAny()
                 .map(multiEntry -> parsMultiConfig(new ArrayList<>(spels), multiEntry, event))
@@ -117,7 +99,7 @@ public class TLogManager implements InitializingBean {
                 LinkedList<Object> logEntityCopy = new LinkedList<>(logEntity);
                 logEntityCopy.addAll(collectionArgValue);
 
-                String content = Joiner.on(SEPARATOR).useForNull(placeHolder).join(logEntityCopy);
+                String content = Joiner.on(SEPARATOR).useForNull(getPlaceHolder()).join(logEntityCopy);
                 TLogManager.this.tLogger.trace("{}", content);
             }
         }
@@ -132,10 +114,10 @@ public class TLogManager implements InitializingBean {
                                              TLogEvent event) {
         List<String> spelList = spels.stream().filter(entry -> !entry.isMulti()).map(SpELConfigEntry::getKey).collect(
             Collectors.toList());
-        List<Object> spelValues = calcSpelValues(event, spelList, placeHolder);
+        List<Object> spelValues = calcSpelValues(event, spelList, getPlaceHolder());
 
         String argKey = multiConfigEntry.getKey();
-        Object multiArg = calcSpelValues(event, Collections.singletonList(argKey), placeHolder).get(0);
+        Object multiArg = calcSpelValues(event, Collections.singletonList(argKey), getPlaceHolder()).get(0);
 
         Collection collectionArg;
         if (multiArg instanceof Collection) {
@@ -165,7 +147,7 @@ public class TLogManager implements InitializingBean {
     private List<Collection> parsSingleConfig(List<SpELConfigEntry> singleSpels, TLogEvent event) {
         List<String> argSpels = singleSpels.stream().map(SpELConfigEntry::getKey).collect(Collectors.toList());
 
-        return Collections.singletonList(calcSpelValues(event, argSpels, placeHolder));
+        return Collections.singletonList(calcSpelValues(event, argSpels, getPlaceHolder()));
     }
 
     private String nullToPlaceholder(Object nullableObj) {
@@ -173,147 +155,6 @@ public class TLogManager implements InitializingBean {
     }
 
     private String nullToPlaceholder(Object nullableObj, Function<Object, String> processor) {
-        return nullableObj == null ? placeHolder : processor.apply(nullableObj);
-    }
-
-    public void setSpelResource(Resource spelResource) throws IOException {
-        String json = CharStreams.toString(new InputStreamReader(spelResource.getInputStream()));
-
-        // 支持乱序引用config
-        Map<String, String> relativeConfig = new HashMap<>();
-
-        Map<String, Object> jsonObject = JSONObject.parseObject(json, Feature.AutoCloseSource);
-        for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
-            String key = entry.getKey();
-            List<SpELConfigEntry> spels = METHOD_SPEL_MAP.computeIfAbsent(key, k -> new LinkedList<>());
-            Object value = entry.getValue();
-            // 引用其他的配置
-            if (value instanceof String && ((String)value).startsWith("#")) {
-                relativeConfig.put(key, ((String)value).substring(1));
-            }
-            // 新创建的配置
-            else if (value instanceof JSONArray) {
-                List<SpELConfigEntry> newConfigs = SpELConfigEntry.parseEntriesFromJsonArray((JSONArray)value);
-                spels.addAll(newConfigs);
-            }
-            // 错误的配置语法
-            else {
-                throw new TraceException(
-                    "your config '" + value
-                        + "' is not relative defined config or not a new config. please check your config syntax is "
-                        + "correct or mail to jifang.zjf@alibaba-inc.com.");
-            }
-        }
-
-        // 将引用的配置注册进去
-        for (Map.Entry<String, String> entry : relativeConfig.entrySet()) {
-            List<SpELConfigEntry> definedConfig = METHOD_SPEL_MAP.computeIfAbsent(entry.getValue(),
-                (key) -> {
-                    throw new TraceException("relative config '" + key + "' is not defined.");
-                });
-
-            METHOD_SPEL_MAP.computeIfAbsent(entry.getKey(), key -> new LinkedList<>()).addAll(definedConfig);
-        }
-    }
-
-    public void setFilePath(String filePath) {
-        this.filePath = filePath;
-    }
-
-    public void setMethodSpelMap(Map<String, List<SpELConfigEntry>> methodSpelMap) {
-        METHOD_SPEL_MAP.putAll(methodSpelMap);
-    }
-
-    public void setSync(boolean sync) {
-        this.sync = sync;
-    }
-
-    public void setCharset(String charset) {
-        this.charset = charset;
-    }
-
-    public void setPlaceHolder(String placeHolder) {
-        this.placeHolder = placeHolder;
-    }
-
-    public void setMaxHistory(int maxHistory) {
-        this.maxHistory = maxHistory;
-    }
-
-    public void setFilters(List<TLogFilter> filters) {
-        this.filters = filters;
-    }
-
-    public void addFilter(TLogFilter filter) {
-        if (this.filters == null) {
-            this.filters = new LinkedList<>();
-        }
-        this.filters.add(filter);
-    }
-
-    @ToString
-    public static class SpELConfigEntry implements Map.Entry<String, List<String>> {
-
-        private String key;
-
-        private List<String> value;
-
-        public SpELConfigEntry(String key, List<String> value) {
-            this.key = key;
-            this.value = value;
-        }
-
-        public static List<SpELConfigEntry> parseEntriesFromJsonArray(JSONArray array) {
-            List<SpELConfigEntry> entries = new ArrayList<>(array.size());
-            for (Object jsonEntry : array) {
-                String key = null;
-                List<String> value = null;
-
-                if (jsonEntry instanceof String) {
-                    key = (String)jsonEntry;
-                } else if (jsonEntry instanceof JSONObject) {
-                    JSONObject jsonObject = (JSONObject)jsonEntry;
-                    Preconditions.checkArgument(jsonObject.size() == 1);
-
-                    Entry<String, Object> next = jsonObject.entrySet().iterator().next();
-                    key = next.getKey();
-                    value = ((JSONArray)next.getValue()).stream().map(Object::toString).collect(Collectors.toList());
-                }
-
-                entries.add(new SpELConfigEntry(key, value));
-            }
-
-            return entries;
-        }
-
-        public boolean isMulti() {
-            return this.value != null;
-        }
-
-        @Override
-        public String getKey() {
-            return key;
-        }
-
-        @Override
-        public List<String> getValue() {
-            return this.value;
-        }
-
-        @Override
-        public List<String> setValue(List<String> value) {
-            return this.value = value;
-        }
-    }
-
-    public interface TLogFilter {
-
-        enum FilterReply {
-            DENY,
-            NEUTRAL,
-            ACCEPT;
-        }
-
-        FilterReply decide(String formattedMessage) throws Exception;
+        return nullableObj == null ? getPlaceHolder() : processor.apply(nullableObj);
     }
 }
