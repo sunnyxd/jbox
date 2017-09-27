@@ -38,7 +38,8 @@ public class JboxUtils {
         return ReflectionUtils.getField(field, target);
     }
 
-    public static Object getFieldValue(@NonNull Object target, @NonNull String outerFieldName, String... innerFieldNames) {
+    public static Object getFieldValue(@NonNull Object target, @NonNull String outerFieldName,
+                                       String... innerFieldNames) {
         Object outerObject = getFieldValue(target, outerFieldName);
 
         Object innerObject = null;
@@ -54,13 +55,13 @@ public class JboxUtils {
     }
 
     public static Method getAbstractMethod(JoinPoint pjp) {
-        MethodSignature ms = (MethodSignature) pjp.getSignature();
+        MethodSignature ms = (MethodSignature)pjp.getSignature();
         Method method = ms.getMethod();
         return method;
     }
 
     public static Method getImplMethod(JoinPoint pjp) throws NoSuchMethodException {
-        MethodSignature ms = (MethodSignature) pjp.getSignature();
+        MethodSignature ms = (MethodSignature)pjp.getSignature();
         Method method = ms.getMethod();
         if (method.getDeclaringClass().isInterface()) {
             method = pjp.getTarget().getClass().getDeclaredMethod(ms.getName(), method.getParameterTypes());
@@ -116,8 +117,8 @@ public class JboxUtils {
         StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
         if (stackTrace != null && stackTrace.length > 2) {
             StringBuilder sb = new StringBuilder("current thread [")
-                    .append(Thread.currentThread().getName())
-                    .append("] : ");
+                .append(Thread.currentThread().getName())
+                .append("] : ");
 
             for (int i = 2 /*trim Thread.getStackTrace() & JboxUtils.getStackTrace() */; i < stackTrace.length; ++i) {
                 sb.append("\n\t").append(stackTrace[i]);
@@ -129,8 +130,10 @@ public class JboxUtils {
         return "";
     }
 
+    private static String serverIp = null;
+
     public static String getServerIp() {
-        return serverIpSupplier.get();
+        return serverIp == null ? (serverIp = serverIpSupplier.get()) : serverIp;
     }
 
     private static final Supplier<String> serverIpSupplier = () -> {
@@ -145,8 +148,8 @@ public class JboxUtils {
                 while (inetAddresses.hasMoreElements()) {
                     InetAddress inetAddress = inetAddresses.nextElement();
                     if (inetAddress instanceof Inet4Address
-                            && !inetAddress.isLoopbackAddress()
-                            && !inetAddress.isSiteLocalAddress()) {
+                        && !inetAddress.isLoopbackAddress()
+                        && !inetAddress.isSiteLocalAddress()) {
 
                         serverIp = inetAddress.getHostAddress();
                         fonded = true;

@@ -34,7 +34,7 @@ import static com.alibaba.jbox.utils.JboxUtils.getSimplifiedMethodName;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.7
+ * @version 1.8
  *          - 1.0: append 'traceId' to logger;
  *          - 1.1: append 'method invoke cost time & param' to biz logger;
  *          - 1.2: validate method param {@code com.alibaba.jbox.annotation.NotNull}, {@code
@@ -43,7 +43,8 @@ import static com.alibaba.jbox.utils.JboxUtils.getSimplifiedMethodName;
  *          - 1.4: add sentinel on invoked service interface;
  *          - 1.5: append method invoke result on logger content;
  *          - 1.6: support use TraceAspect not with {@code com.alibaba.jbox.trace.TraceAspect} annotation.
- *          - 1.7: place in TLog
+ *          - 1.7: async/sync append |invokeTime|thread|rt|class|method|args|result|exception|serverIp|traceId|clientName|clientIp| to TLog.
+ *          - 1.8: add 'errorRoot' config to determine append root logger error content.
  * @since 2016/11/25 上午11:53.
  */
 @Aspect
@@ -94,6 +95,11 @@ public class TraceAspect {
      * determine append 'com.alibaba.jbox.trace' log or not.
      */
     private volatile boolean trace = false;
+
+    /**
+     * determine append root error log.
+     */
+    private volatile boolean errorRoot = false;
 
     /**
      * use for replace @Trace when not use Trace annotation.
@@ -171,9 +177,12 @@ public class TraceAspect {
             sendTLog(event);
             return result;
         } catch (Throwable e) {
-            rootLogger.error("method: [{}] invoke failed",
-                getSimplifiedMethodName(JboxUtils.getAbstractMethod(joinPoint)),
-                e);
+            if (errorRoot) {
+                rootLogger.error("method: [{}] invoke failed, traceId:{}",
+                    getSimplifiedMethodName(JboxUtils.getAbstractMethod(joinPoint)),
+                    Strings.isNullOrEmpty(traceId) ? "" : traceId,
+                    e);
+            }
             event.setException(e);
             sendTLog(event);
             throw e;
@@ -386,5 +395,9 @@ public class TraceAspect {
 
     public void settLogManager(TLogManager tLogManager) {
         this.tLogManager = tLogManager;
+    }
+
+    public void setErrorRoot(boolean errorRoot) {
+        this.errorRoot = errorRoot;
     }
 }
