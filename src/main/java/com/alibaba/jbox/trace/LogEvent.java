@@ -12,7 +12,7 @@ import lombok.Data;
  * @since 2017/9/22 15:57:00.
  */
 @Data
-class TLogEvent {
+class LogEvent {
 
     /**
      * obtain from context
@@ -30,7 +30,7 @@ class TLogEvent {
     /**
      * need generate from TraceAspect invoke
      */
-    private long invokeTime;
+    private long startTime;
 
     private String className;
 
@@ -38,7 +38,7 @@ class TLogEvent {
 
     private Object[] args;
 
-    private long costTime;
+    private long rt;
 
     private Object result;
 
@@ -51,4 +51,9 @@ class TLogEvent {
         this.clientIp = RequestCtxUtil.getClientIp();
         this.invokeThread = Thread.currentThread().getName();
     }
+
+    /**
+     * don't need record
+     */
+    String configKey;
 }

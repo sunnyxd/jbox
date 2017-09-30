@@ -25,21 +25,23 @@ import lombok.Data;
 import lombok.ToString;
 import org.springframework.core.io.Resource;
 
-import static com.alibaba.jbox.trace.Constants.DEFAULT_MAX_HISTORY;
-import static com.alibaba.jbox.trace.Constants.DEFAULT_RUNNABLE_Q_SIZE;
-import static com.alibaba.jbox.trace.Constants.LOG_SUFFIX;
-import static com.alibaba.jbox.trace.Constants.MAX_THREAD_POOL_SIZE;
-import static com.alibaba.jbox.trace.Constants.MIN_THREAD_POOL_SIZE;
-import static com.alibaba.jbox.trace.Constants.PLACEHOLDER;
-import static com.alibaba.jbox.trace.Constants.UTF_8;
+import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_MAX_HISTORY;
+import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_RUNNABLE_Q_SIZE;
+import static com.alibaba.jbox.trace.TraceConstants.LOG_SUFFIX;
+import static com.alibaba.jbox.trace.TraceConstants.MAX_THREAD_POOL_SIZE;
+import static com.alibaba.jbox.trace.TraceConstants.MIN_THREAD_POOL_SIZE;
+import static com.alibaba.jbox.trace.TraceConstants.PLACEHOLDER;
+import static com.alibaba.jbox.trace.TraceConstants.UTF_8;
 
 /**
+ * TLogManager统一配置
+ *
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
  * @since 2017/9/26 14:09:00.
  */
 @Data
-public class TLogManagerConfig implements Serializable {
+public abstract class AbstractTLogConfig implements Serializable {
 
     private static final long serialVersionUID = 5924881023295492855L;
 

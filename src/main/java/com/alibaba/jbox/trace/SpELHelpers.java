@@ -13,10 +13,10 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.util.ReflectionUtils;
 
-import static com.alibaba.jbox.trace.Constants.KEY_ARGS;
-import static com.alibaba.jbox.trace.Constants.KEY_PH;
-import static com.alibaba.jbox.trace.Constants.KEY_PLACEHOLDER;
-import static com.alibaba.jbox.trace.Constants.KEY_RESULT;
+import static com.alibaba.jbox.trace.TraceConstants.KEY_ARGS;
+import static com.alibaba.jbox.trace.TraceConstants.KEY_PH;
+import static com.alibaba.jbox.trace.TraceConstants.KEY_PLACEHOLDER;
+import static com.alibaba.jbox.trace.TraceConstants.KEY_RESULT;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
@@ -46,7 +46,7 @@ public class SpELHelpers {
         CUSTOM_METHODS.add(staticMethod);
     }
 
-    static List<Object> calcSpelValues(TLogEvent event, List<String> spels, String placeHolder) {
+    static List<Object> calcSpelValues(LogEvent event, List<String> spels, String placeHolder) {
         List<Object> values;
         if (spels != null && !spels.isEmpty()) {
             // 将'args'、'result'、'placeholder'、'ph'导入spel执行环境

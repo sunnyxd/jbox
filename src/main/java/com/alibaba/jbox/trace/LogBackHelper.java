@@ -5,7 +5,7 @@ import java.util.List;
 
 import com.alibaba.jbox.script.ScriptExecutor;
 import com.alibaba.jbox.trace.TLogManager.TLogEventParser;
-import com.alibaba.jbox.trace.TLogManagerConfig.TLogFilter;
+import com.alibaba.jbox.trace.AbstractTLogConfig.TLogFilter;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
@@ -19,7 +19,7 @@ import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.alibaba.jbox.trace.TraceAspect.traceLogger;
+import static com.alibaba.jbox.trace.TraceConstants.tracer;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
@@ -75,11 +75,11 @@ class LogBackHelper {
                 tLogger.addAppender(appender);
                 ScriptExecutor.register(tLogger.getName(), appender);
             } else {
-                traceLogger.warn("application not used Logback implementation,"
+                tracer.warn("application not used Logback implementation,"
                     + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
             }
         } catch (ClassNotFoundException e) {
-            traceLogger.warn(
+            tracer.warn(
                 "class 'ch.qos.logback.classic.Logger' not found(application not used Logback implementation),"
                     + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
         }
@@ -119,7 +119,7 @@ class LogBackHelper {
                         TLogFilter.FilterReply reply = filter.decide(event.getFormattedMessage());
                         return FilterReply.valueOf(reply.name());
                     } catch (Exception e) {
-                        traceLogger.error("filter '{}' invoke error, formatted message: {}",
+                        tracer.error("filter '{}' invoke error, formatted message: {}",
                             filter, event.getFormattedMessage(), e);
                         return FilterReply.DENY;
                     }

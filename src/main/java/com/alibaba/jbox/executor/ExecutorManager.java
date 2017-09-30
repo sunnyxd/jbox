@@ -1,7 +1,7 @@
 package com.alibaba.jbox.executor;
 
+import java.io.Serializable;
 import java.lang.reflect.Proxy;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,7 +47,7 @@ public class ExecutorManager implements ExecutorLoggerInter {
 
     private static final String SYNC_PATTERN = "sync-%s";
 
-    static ConcurrentMap<String, Pair<AtomicLong, AtomicLong>> counters = new ConcurrentHashMap<>();
+    static ConcurrentMap<String, FlightRecorder> recorders = new ConcurrentHashMap<>();
 
     static ConcurrentMap<String, ExecutorService> executors = new ConcurrentHashMap<>();
 
@@ -165,25 +165,20 @@ public class ExecutorManager implements ExecutorLoggerInter {
 
     @Data
     @AllArgsConstructor
-    static final class Pair<K, V> implements Map.Entry<K, V> {
+    static final class FlightRecorder implements Serializable {
 
-        private K left;
+        private static final long serialVersionUID = -8342765829706151410L;
 
-        private V right;
+        private AtomicLong successor;
 
-        @Override
-        public K getKey() {
-            return left;
-        }
+        private AtomicLong failure;
 
-        @Override
-        public V getValue() {
-            return right;
-        }
+        private AtomicLong totalRt;
 
-        @Override
-        public V setValue(V value) {
-            return right;
+        public FlightRecorder() {
+            this.successor = new AtomicLong(0L);
+            this.failure = new AtomicLong(0L);
+            this.totalRt = new AtomicLong(0L);
         }
     }
 }

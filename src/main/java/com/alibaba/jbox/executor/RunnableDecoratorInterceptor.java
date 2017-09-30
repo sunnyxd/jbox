@@ -6,9 +6,8 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 
-import com.alibaba.jbox.executor.ExecutorManager.Pair;
+import com.alibaba.jbox.executor.ExecutorManager.FlightRecorder;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
@@ -16,7 +15,7 @@ import com.taobao.eagleeye.EagleEye;
 import lombok.NonNull;
 import org.slf4j.MDC;
 
-import static com.alibaba.jbox.executor.ExecutorManager.counters;
+import static com.alibaba.jbox.executor.ExecutorManager.recorders;
 
 /**
  * @author jifang@alibaba-inc.com
@@ -48,17 +47,16 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
         if (NEED_PROXY_METHODS.contains(methodName)) {
             Object rpcContext = EagleEye.getRpcContext();
             Object firstArg = args[0];
-            Pair<AtomicLong, AtomicLong> counter = counters.computeIfAbsent(group,
-                (k) -> new Pair<>(new AtomicLong(0L), new AtomicLong(0L)));
+            FlightRecorder recorder = recorders.computeIfAbsent(group, (k) -> new FlightRecorder());
 
             if (firstArg instanceof AsyncRunnable) {
-                args[0] = new AsyncRunnableDecorator(counter, (AsyncRunnable)firstArg, rpcContext);
+                args[0] = new AsyncRunnableDecorator(recorder, (AsyncRunnable)firstArg, rpcContext);
             } else if (firstArg instanceof AsyncCallable) {
-                args[0] = new AsyncCallableDecorator(counter, (AsyncCallable)firstArg, rpcContext);
+                args[0] = new AsyncCallableDecorator(recorder, (AsyncCallable)firstArg, rpcContext);
             } else if (firstArg instanceof Runnable) {
-                args[0] = new RunnableDecorator(counter, (Runnable)firstArg, rpcContext);
+                args[0] = new RunnableDecorator(recorder, (Runnable)firstArg, rpcContext);
             } else if (firstArg instanceof Callable) {
-                args[0] = new CallableDecorator(counter, (Callable)firstArg, rpcContext);
+                args[0] = new CallableDecorator(recorder, (Callable)firstArg, rpcContext);
             }
         }
 
@@ -68,14 +66,14 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
 
 class RunnableDecorator implements AsyncRunnable {
 
-    private Pair<AtomicLong, AtomicLong> counter;
+    private FlightRecorder recorder;
 
     private Runnable runnable;
 
     private Object rpcContext;
 
-    RunnableDecorator(Pair<AtomicLong, AtomicLong> counter, @NonNull Runnable runnable, Object rpcContext) {
-        this.counter = counter;
+    RunnableDecorator(FlightRecorder recorder, @NonNull Runnable runnable, Object rpcContext) {
+        this.recorder = recorder;
         this.runnable = runnable;
         this.rpcContext = rpcContext;
     }
@@ -88,11 +86,18 @@ class RunnableDecorator implements AsyncRunnable {
             MDC.put(TRACE_ID, traceId);
         }
         try {
+            long start = System.currentTimeMillis();
+
             runnable.run();
-            counter.getLeft().incrementAndGet();
+
+            // invoke rt
+            recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
+            // success count
+            recorder.getSuccessor().incrementAndGet();
         } catch (Throwable e) {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
-            counter.getRight().incrementAndGet();
+            // failure count
+            recorder.getFailure().incrementAndGet();
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -113,14 +118,14 @@ class RunnableDecorator implements AsyncRunnable {
 
 class CallableDecorator implements AsyncCallable {
 
-    private Pair<AtomicLong, AtomicLong> counter;
+    private FlightRecorder recorder;
 
     private Callable callable;
 
     private Object rpcContext;
 
-    CallableDecorator(Pair<AtomicLong, AtomicLong> counter, @NonNull Callable callable, Object rpcContext) {
-        this.counter = counter;
+    CallableDecorator(FlightRecorder recorder, @NonNull Callable callable, Object rpcContext) {
+        this.recorder = recorder;
         this.callable = callable;
         this.rpcContext = rpcContext;
     }
@@ -133,13 +138,21 @@ class CallableDecorator implements AsyncCallable {
             MDC.put(TRACE_ID, traceId);
         }
         try {
+            long start = System.currentTimeMillis();
+
             Object result = callable.call();
-            counter.getLeft().incrementAndGet();
+
+            // invoke rt
+            recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
+            // success count
+            recorder.getSuccessor().incrementAndGet();
+
             return result;
 
         } catch (Throwable e) {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
-            counter.getRight().incrementAndGet();
+            // failure count
+            recorder.getFailure().incrementAndGet();
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -162,15 +175,15 @@ class CallableDecorator implements AsyncCallable {
 
 class AsyncRunnableDecorator implements AsyncRunnable {
 
-    private Pair<AtomicLong, AtomicLong> counter;
+    private FlightRecorder recorder;
 
     private AsyncRunnable asyncRunnable;
 
     private Object rpcContext;
 
-    AsyncRunnableDecorator(Pair<AtomicLong, AtomicLong> counter, @NonNull AsyncRunnable asyncRunnable,
+    AsyncRunnableDecorator(FlightRecorder recorder, @NonNull AsyncRunnable asyncRunnable,
                            Object rpcContext) {
-        this.counter = counter;
+        this.recorder = recorder;
         this.asyncRunnable = asyncRunnable;
         this.rpcContext = rpcContext;
     }
@@ -183,11 +196,16 @@ class AsyncRunnableDecorator implements AsyncRunnable {
             MDC.put(TRACE_ID, traceId);
         }
         try {
+            long start = System.currentTimeMillis();
             asyncRunnable.execute();
-            counter.getLeft().incrementAndGet();
+            // invoke rt
+            recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
+            // success count
+            recorder.getSuccessor().incrementAndGet();
         } catch (Throwable e) {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
-            counter.getRight().incrementAndGet();
+            // failure count
+            recorder.getFailure().incrementAndGet();
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -208,15 +226,15 @@ class AsyncRunnableDecorator implements AsyncRunnable {
 
 class AsyncCallableDecorator implements AsyncCallable {
 
-    private Pair<AtomicLong, AtomicLong> counter;
+    private FlightRecorder recorder;
 
     private AsyncCallable asyncCallable;
 
     private Object rpcContext;
 
-    AsyncCallableDecorator(Pair<AtomicLong, AtomicLong> counter, @NonNull AsyncCallable asyncCallable,
+    AsyncCallableDecorator(FlightRecorder recorder, @NonNull AsyncCallable asyncCallable,
                            Object rpcContext) {
-        this.counter = counter;
+        this.recorder = recorder;
         this.asyncCallable = asyncCallable;
         this.rpcContext = rpcContext;
     }
@@ -229,12 +247,20 @@ class AsyncCallableDecorator implements AsyncCallable {
             MDC.put(TRACE_ID, traceId);
         }
         try {
+            long start = System.currentTimeMillis();
+
             Object result = asyncCallable.execute();
-            counter.getLeft().incrementAndGet();
+
+            // invoke rt
+            recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
+            // success count
+            recorder.getSuccessor().incrementAndGet();
+
             return result;
         } catch (Throwable e) {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
-            counter.getRight().incrementAndGet();
+            // failure count
+            recorder.getFailure().incrementAndGet();
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {

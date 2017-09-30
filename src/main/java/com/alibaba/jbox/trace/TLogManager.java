@@ -20,17 +20,17 @@ import org.slf4j.Logger;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.InitializingBean;
 
-import static com.alibaba.jbox.trace.Constants.SEPARATOR;
-import static com.alibaba.jbox.trace.Constants.TLOG_EXECUTOR_GROUP;
 import static com.alibaba.jbox.trace.LogBackHelper.initTLogger;
 import static com.alibaba.jbox.trace.SpELHelpers.calcSpelValues;
+import static com.alibaba.jbox.trace.TraceConstants.SEPARATOR;
+import static com.alibaba.jbox.trace.TraceConstants.TLOG_EXECUTOR_GROUP;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
  * @since 2017/9/22 15:50:00.
  */
-public class TLogManager extends TLogManagerConfig implements InitializingBean {
+public class TLogManager extends AbstractTLogConfig implements InitializingBean {
 
     private static final long serialVersionUID = -4553832981389212025L;
 
@@ -59,24 +59,24 @@ public class TLogManager extends TLogManagerConfig implements InitializingBean {
         }
     }
 
-    void postTLogEvent(TLogEvent event) {
+    void postTLogEvent(LogEvent event) {
         executor.submit(new TLogEventParser(event));
     }
 
     final class TLogEventParser implements AsyncRunnable {
 
-        private TLogEvent event;
+        private LogEvent event;
 
-        TLogEventParser(TLogEvent event) {
+        TLogEventParser(LogEvent event) {
             this.event = event;
         }
 
         @Override
         public void execute() {
             List<Object> logEntity = new LinkedList<>();
-            logEntity.add(DateUtils.millisFormatFromMillis(event.getInvokeTime()));
+            logEntity.add(DateUtils.millisFormatFromMillis(event.getRt()));
             logEntity.add(event.getInvokeThread());
-            logEntity.add(event.getCostTime());
+            logEntity.add(event.getRt());
             logEntity.add(event.getClassName());
             logEntity.add(event.getMethodName());
 
@@ -112,7 +112,7 @@ public class TLogManager extends TLogManagerConfig implements InitializingBean {
     }
 
     private List<Collection> parsMultiConfig(List<SpELConfigEntry> spels, SpELConfigEntry multiConfigEntry,
-                                             TLogEvent event) {
+                                             LogEvent event) {
         List<String> spelList = spels.stream().filter(entry -> !entry.isMulti()).map(SpELConfigEntry::getKey).collect(
             Collectors.toList());
         List<Object> spelValues = calcSpelValues(event, spelList, getPlaceHolder());
@@ -145,7 +145,7 @@ public class TLogManager extends TLogManagerConfig implements InitializingBean {
         return collectionArgResults;
     }
 
-    private List<Collection> parsSingleConfig(List<SpELConfigEntry> singleSpels, TLogEvent event) {
+    private List<Collection> parsSingleConfig(List<SpELConfigEntry> singleSpels, LogEvent event) {
         List<String> argSpels = singleSpels.stream().map(SpELConfigEntry::getKey).collect(Collectors.toList());
 
         return Collections.singletonList(calcSpelValues(event, argSpels, getPlaceHolder()));

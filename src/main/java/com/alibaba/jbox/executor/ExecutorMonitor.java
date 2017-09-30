@@ -11,13 +11,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import com.alibaba.jbox.executor.ExecutorManager.Pair;
+import com.alibaba.jbox.executor.ExecutorManager.FlightRecorder;
 import com.alibaba.jbox.scheduler.ScheduleTask;
 import com.alibaba.jbox.scheduler.TaskScheduler;
 import com.alibaba.jbox.spring.AbstractApplicationContextAware;
@@ -32,8 +31,8 @@ import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProce
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.util.ReflectionUtils;
 
-import static com.alibaba.jbox.executor.ExecutorManager.counters;
 import static com.alibaba.jbox.executor.ExecutorManager.executors;
+import static com.alibaba.jbox.executor.ExecutorManager.recorders;
 import static com.alibaba.jbox.utils.JboxUtils.getUsableBeanName;
 import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SINGLETON;
 
@@ -68,22 +67,29 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             if (executor == null) {
                 return;
             }
+            FlightRecorder recorder = recorders.getOrDefault(group, new FlightRecorder());
+            long successor = recorder.getSuccessor().get();
+            long failure = recorder.getFailure().get();
+            double rt;
+            if (successor == 0 && failure == 0) {
+                rt = 0.0;
+            } else {
+                rt = recorder.getTotalRt().get() * 1.0 / (successor + failure);
+            }
 
-            Pair<AtomicLong, AtomicLong> pair = counters.getOrDefault(group,
-                new Pair<>(new AtomicLong(0L), new AtomicLong(0L)));
             BlockingQueue<Runnable> queue = executor.getQueue();
             logBuilder.append(String.format(
-                "\tgroup:[%s], pool:[%s], active:[%d], successor:[%s], failure:[%s], core pool:[%d], max pool:[%d], "
-                    + "task in "
-                    + "queue:[%d], "
+                "group:[%s] > pool:[%s], active:[%d], core:[%d], max:[%d], successor:[%s], failure:[%s], rt:[%s], "
+                    + "queues:[%d], "
                     + "remain:[%d]\n",
                 group,
                 executor.getPoolSize(),
                 executor.getActiveCount(),
-                numberFormat(pair.getLeft().get()),
-                numberFormat(pair.getRight().get()),
                 executor.getCorePoolSize(),
                 executor.getMaximumPoolSize(),
+                numberFormat(successor),
+                numberFormat(failure),
+                String.format("%.2f", rt),
                 queue.size(),
                 queue.remainingCapacity()));
 
@@ -152,7 +158,7 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             return (stringBuilder, object) -> {
                 Method taskInfoMethod = ReflectionUtils.findMethod(object.getClass(), "taskInfo");
                 ReflectionUtils.makeAccessible(taskInfoMethod);
-                stringBuilder.append("\t -> ")
+                stringBuilder.append(" -> ")
                     .append("task: ")
                     .append(ReflectionUtils.invokeMethod(taskInfoMethod, object))
                     .append(", obj: ")

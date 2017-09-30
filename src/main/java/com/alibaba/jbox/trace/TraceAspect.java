@@ -3,7 +3,6 @@ package com.alibaba.jbox.trace;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,7 +28,11 @@ import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.util.ReflectionUtils;
 
+import static com.alibaba.jbox.trace.TraceConstants.CONFIG_KEY_PATTERN;
+import static com.alibaba.jbox.trace.TraceConstants.TRACE_ID;
+import static com.alibaba.jbox.trace.TraceConstants.tracer;
 import static com.alibaba.jbox.utils.JboxUtils.getSimplifiedMethodName;
 
 /**
@@ -43,79 +46,24 @@ import static com.alibaba.jbox.utils.JboxUtils.getSimplifiedMethodName;
  *          - 1.4: add sentinel on invoked service interface;
  *          - 1.5: append method invoke result on logger content;
  *          - 1.6: support use TraceAspect not with {@code com.alibaba.jbox.trace.TraceAspect} annotation.
- *          - 1.7: async/sync append |invokeTime|thread|rt|class|method|args|result|exception|serverIp|traceId|clientName|clientIp| to TLog.
+ *          - 1.7: async/sync append |invokeTime|thread|rt|class|method|args|result|exception|serverIp|traceId
+ *          |clientName|clientIp| to TLog.
  *          - 1.8: add 'errorRoot' config to determine append root logger error content.
  * @since 2016/11/25 上午11:53.
  */
 @Aspect
-public class TraceAspect {
+public class TraceAspect extends AbstractTraceConfig {
 
-    /**
-     * add logback.xml or log4j.xml {@code %X{traceId}} in {@code <pattern/>} config.
-     */
-    private static final String TRACE_ID = "traceId";
+    private static final long serialVersionUID = 1383288704716921329L;
 
     private static final Logger rootLogger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
 
-    static final Logger traceLogger = LoggerFactory.getLogger("com.alibaba.jbox.trace");
-
     private static final ConcurrentMap<String, Logger> BIZ_LOGGERS = new ConcurrentHashMap<>();
-
-    /**
-     * used when method's implementation class has non default logger instance.
-     */
-    private Logger defaultBizLogger;
-
-    /**
-     * determine 'validate arguments' use or not.
-     */
-    private volatile boolean validator = false;
-
-    /**
-     * determine 'log method invoke cost time' use or not.
-     */
-    private volatile boolean elapsed = false;
-
-    /**
-     * determine the 'log method invoke cost time' append method param or not.
-     */
-    private volatile boolean param = true;
-
-    /**
-     * determine the 'log method invoke cost time' append method invoke result or not.
-     */
-    private volatile boolean result = true;
-
-    /**
-     * determine use sentinel for 'rate limit'.
-     */
-    private volatile boolean sentinel = false;
-
-    /**
-     * determine append 'com.alibaba.jbox.trace' log or not.
-     */
-    private volatile boolean trace = false;
-
-    /**
-     * determine append root error log.
-     */
-    private volatile boolean errorRoot = false;
-
-    /**
-     * use for replace @Trace when not use Trace annotation.
-     * methodKey:{className:MethodName} -> TraceConfig
-     */
-    private ConcurrentMap<String, TraceConfig> traceConfigs = new ConcurrentHashMap<>();
-
-    /**
-     * use for push TLog event.
-     */
-    private TLogManager tLogManager;
 
     @Around("@annotation(com.alibaba.jbox.trace.Trace)")
     public Object invoke(final ProceedingJoinPoint joinPoint) throws Throwable {
 
-        /*
+        /**
          * @since 1.0: put traceId
          */
         String traceId = EagleEye.getTraceId();
@@ -123,68 +71,72 @@ public class TraceAspect {
             MDC.put(TRACE_ID, traceId);
         }
 
-        TLogEvent event = new TLogEvent();
+        LogEvent logEvent = new LogEvent();
         try {
+            // start time
             long start = System.currentTimeMillis();
-            event.setInvokeTime(start);
-            Method abstractMethod = JboxUtils.getAbstractMethod(joinPoint);
-            Method implMethod = JboxUtils.getImplMethod(joinPoint);
+            logEvent.setStartTime(start);
 
-            String className = implMethod.getDeclaringClass().getName();
-            String methodName = implMethod.getName();
+            // class、method、configKey
+            Method method = JboxUtils.getImplMethod(joinPoint);
+            String className = method.getDeclaringClass().getName();
+            String methodName = method.getName();
+            String configKey = String.format(CONFIG_KEY_PATTERN, className, methodName);
 
-            event.setClassName(className);
-            event.setMethodName(methodName);
+            logEvent.setClassName(className);
+            logEvent.setMethodName(methodName);
+            logEvent.setConfigKey(configKey);
 
-            String methodKey = String.format("%s:%s", className, methodName);
-
+            // args
             Object[] args = joinPoint.getArgs();
-            event.setArgs(args);
+            logEvent.setArgs(args);
 
-            /*
+            /**
              * @since 1.2 validate arguments
              */
-            if (validator) {
-                validateArguments(joinPoint.getTarget(), implMethod, args);
+            if (isValidator()) {
+                validateArguments(joinPoint.getTarget(), method, args);
             }
 
-            /*
+            /**
              * @since 1.4 sentinel
              */
-            if (sentinel) {
-                entry(abstractMethod);
+            if (isSentinel()) {
+                entry(method);
             }
 
+            // result
             Object result = joinPoint.proceed(args);
-            event.setResult(result);
+            logEvent.setResult(result);
 
-            long costTime = System.currentTimeMillis() - start;
-            event.setCostTime(costTime);
+            long rt = System.currentTimeMillis() - start;
+            logEvent.setRt(rt);
 
-            /*
+            /**
              * @since 1.1 logger invoke elapsed time & parameters
              */
-            if (elapsed) {
-                Trace trace = implMethod.getAnnotation(Trace.class);
-                Object[] config = getConfig(methodKey, trace);
-                if (isNeedLogger((Long)config[0], costTime)) {
-                    String logContent = buildLogContent(abstractMethod, costTime, args, result);
+            if (isElapsed()) {
+                Object[] traceConfig = getTraceConfig(configKey, method.getAnnotation(Trace.class));
+                if (isNeedLogger((Long)traceConfig[0], rt)) {
+                    String logContent = buildLogContent(method, rt, args, result);
 
-                    logBiz(logContent, implMethod, joinPoint, (String)config[1]);
+                    logBiz(logContent, configKey, method, joinPoint, (String)traceConfig[1]);
                     logTrace(logContent);
                 }
             }
-            sendTLog(event);
+            sendLogEvent(logEvent);
+
             return result;
         } catch (Throwable e) {
-            if (errorRoot) {
+            if (isErrorRoot()) {
                 rootLogger.error("method: [{}] invoke failed, traceId:{}",
                     getSimplifiedMethodName(JboxUtils.getAbstractMethod(joinPoint)),
                     Strings.isNullOrEmpty(traceId) ? "" : traceId,
                     e);
             }
-            event.setException(e);
-            sendTLog(event);
+            logEvent.setException(e);
+            sendLogEvent(logEvent);
+
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -193,19 +145,27 @@ public class TraceAspect {
         }
     }
 
-    private void sendTLog(TLogEvent event) {
-        if (tLogManager != null) {
+    /*** *********************************************** ***/
+    /***  send metadata to LogEventManager   @since 1.7  ***/
+    /*** *********************************************** ***/
+    private void sendLogEvent(LogEvent event) {
+        if (!getTLogManagers().isEmpty()) {
             event.init();
-            tLogManager.postTLogEvent(event);
+            for (TLogManager tLogManager : getTLogManagers()) {
+                tLogManager.postTLogEvent(event);
+            }
         }
     }
 
-    // @since 1.6
-    private Object[] getConfig(String methodKey, Trace trace) {
+    /*** ***************************************************************************** ***/
+    /***  user 'com.alibaba.jbox.trace.TraceConfig' like as '@Trace' config @since 1.6 ***/
+    /*** ***************************************************************************** ***/
+    private Object[] getTraceConfig(String configKey, Trace trace) {
+
         long threshold;
         String loggerName;
         if (trace == null) {
-            TraceConfig config = this.traceConfigs.computeIfAbsent(methodKey, key -> new TraceConfig());
+            TraceConfig config = this.getTraceConfigs().computeIfAbsent(configKey, key -> new TraceConfig());
             threshold = config.getThreshold();
             loggerName = config.getLogger();
         } else {
@@ -214,92 +174,6 @@ public class TraceAspect {
         }
 
         return new Object[] {threshold, loggerName};
-    }
-
-    /*** ******************************* ***/
-    /***  append cost logger @since 1.1  ***/
-    /*** ******************************* ***/
-
-    private boolean isNeedLogger(long threshold, long costTime) {
-        return costTime > threshold;
-    }
-
-    private String buildLogContent(Method abstractMethod, long costTime, Object[] args, Object resultObj) {
-        StringBuilder logBuilder = new StringBuilder(120);
-        logBuilder
-            .append("method: [")
-            .append(getSimplifiedMethodName(abstractMethod))
-            .append("] invoke total cost [")
-            .append(costTime)
-            .append("]ms");
-
-        if (param) {
-            logBuilder.append(", params:")
-                .append(Arrays.toString(args));
-        }
-
-        // @since 1.5
-        if (result) {
-            logBuilder.append(", result: ")
-                .append(JSONObject.toJSONString(resultObj));
-        }
-
-        return logBuilder.toString();
-    }
-
-    private void logBiz(String logContent, Method method, Object target, String loggerName) {
-        Class<?> clazz = method.getDeclaringClass();
-        String methodName = MessageFormat.format("{0}.{1}", clazz.getName(), method.getName());
-        Logger bizLogger = BIZ_LOGGERS.computeIfAbsent(methodName, key -> {
-            try {
-                if (Strings.isNullOrEmpty(loggerName)) {
-                    return defaultBizLogger == null ? getDefaultBizLogger(clazz, target) : defaultBizLogger;
-                } else {
-                    return getNamedBizLogger(loggerName, clazz, target);
-                }
-            } catch (IllegalAccessException e) {
-                throw new TraceException(e);
-            }
-        });
-
-        if (bizLogger != null) {
-            bizLogger.warn(logContent);
-        }
-    }
-
-    private void logTrace(String logContent) {
-        if (trace) {
-            traceLogger.info(logContent);
-        }
-    }
-
-    private Logger getDefaultBizLogger(Class<?> clazz, Object target) throws IllegalAccessException {
-        Logger bizLogger = null;
-        for (Field field : clazz.getDeclaredFields()) {
-            if (Logger.class.isAssignableFrom(field.getType())) {
-                if (bizLogger == null) {
-                    field.setAccessible(true);
-                    bizLogger = (Logger)field.get(target);
-                } else {
-                    throw new TraceException(
-                        "duplicated field's type is 'org.slf4j.Logger', please specify the used Logger name in @Trace"
-                            + ".name()");
-                }
-            }
-        }
-
-        return bizLogger;
-    }
-
-    private Logger getNamedBizLogger(String loggerName, Class<?> clazz, Object target) {
-        try {
-            Field loggerField = clazz.getDeclaredField(loggerName);
-            loggerField.setAccessible(true);
-            return (Logger)loggerField.get(target);
-        } catch (IllegalAccessException | NoSuchFieldException e) {
-            throw new TraceException(
-                "not such 'org.slf4j.Logger' instance named [" + loggerName + "], in class [" + clazz.getName() + "]");
-        }
     }
 
     /*** *********************************************** ***/
@@ -357,47 +231,88 @@ public class TraceAspect {
         }
     }
 
-    public void setValidator(boolean validator) {
-        this.validator = validator;
+    /*** ******************************* ***/
+    /***  append cost logger @since 1.1  ***/
+    /*** ******************************* ***/
+
+    private boolean isNeedLogger(long threshold, long rt) {
+        return rt > threshold;
     }
 
-    public void setElapsed(boolean elapsed) {
-        this.elapsed = elapsed;
+    private String buildLogContent(Method abstractMethod, long costTime, Object[] args, Object resultObj) {
+        StringBuilder logBuilder = new StringBuilder(120);
+        logBuilder
+            .append("method: [")
+            .append(getSimplifiedMethodName(abstractMethod))
+            .append("] invoke rt [")
+            .append(costTime)
+            .append("]ms");
+
+        if (isParam()) {
+            logBuilder.append(", params:")
+                .append(Arrays.toString(args));
+        }
+
+        // @since 1.5
+        if (isResult()) {
+            logBuilder.append(", result: ")
+                .append(JSONObject.toJSONString(resultObj));
+        }
+
+        return logBuilder.toString();
     }
 
-    public void setParam(boolean param) {
-        this.param = param;
+    private void logBiz(String logContent, String configKey, Method method, Object target, String loggerName) {
+        Class<?> clazz = method.getDeclaringClass();
+        Logger bizLogger = BIZ_LOGGERS.computeIfAbsent(configKey, key -> {
+            try {
+                if (Strings.isNullOrEmpty(loggerName)) {
+                    return getDefaultBizLogger() != null ? getDefaultBizLogger() : getClassInnerLogger(clazz, target);
+                } else {
+                    return getNamedBizLogger(loggerName, clazz, target);
+                }
+            } catch (IllegalAccessException e) {
+                throw new TraceException(e);
+            }
+        });
+
+        if (bizLogger != null) {
+            bizLogger.warn(logContent);
+        }
     }
 
-    public void setResult(boolean result) {
-        this.result = result;
+    private Logger getClassInnerLogger(Class<?> clazz, Object target) throws IllegalAccessException {
+        Logger bizLogger = null;
+        for (Field field : clazz.getDeclaredFields()) {
+            if (Logger.class.isAssignableFrom(field.getType())) {
+                if (bizLogger == null) {
+                    field.setAccessible(true);
+                    bizLogger = (Logger)field.get(target);
+                } else {
+                    throw new TraceException(
+                        "duplicated field's type is 'org.slf4j.Logger', please specify the used Logger name in @Trace"
+                            + ".name()");
+                }
+            }
+        }
+
+        return bizLogger;
     }
 
-    public void setTrace(boolean trace) {
-        this.trace = trace;
+    private Logger getNamedBizLogger(String loggerName, Class<?> clazz, Object target) {
+        try {
+            Field loggerField = ReflectionUtils.findField(clazz, loggerName);
+            return (Logger)ReflectionUtils.getField(loggerField, target);
+        } catch (IllegalStateException e) {
+            throw new TraceException(
+                "not such 'org.slf4j.Logger' instance named [" + loggerName + "], in class [" + clazz.getName() + "]",
+                e);
+        }
     }
 
-    public void setSentinel(boolean sentinel) {
-        this.sentinel = sentinel;
-    }
-
-    public void setTraceConfigs(ConcurrentMap<String, TraceConfig> traceConfigs) {
-        this.traceConfigs = traceConfigs;
-    }
-
-    public void setBizLoggerName(String bizLoggerName) {
-        this.defaultBizLogger = LoggerFactory.getLogger(bizLoggerName);
-    }
-
-    public void setBizLogger(Logger bizLogger) {
-        this.defaultBizLogger = bizLogger;
-    }
-
-    public void settLogManager(TLogManager tLogManager) {
-        this.tLogManager = tLogManager;
-    }
-
-    public void setErrorRoot(boolean errorRoot) {
-        this.errorRoot = errorRoot;
+    private void logTrace(String logContent) {
+        if (isTrace()) {
+            tracer.info(logContent);
+        }
     }
 }
