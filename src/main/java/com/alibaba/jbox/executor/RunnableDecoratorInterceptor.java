@@ -93,7 +93,7 @@ class RunnableDecorator implements AsyncRunnable {
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
             // success count
-            recorder.getSuccessor().incrementAndGet();
+            recorder.getSuccess().incrementAndGet();
         } catch (Throwable e) {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
@@ -145,7 +145,7 @@ class CallableDecorator implements AsyncCallable {
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
             // success count
-            recorder.getSuccessor().incrementAndGet();
+            recorder.getSuccess().incrementAndGet();
 
             return result;
 
@@ -201,7 +201,7 @@ class AsyncRunnableDecorator implements AsyncRunnable {
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
             // success count
-            recorder.getSuccessor().incrementAndGet();
+            recorder.getSuccess().incrementAndGet();
         } catch (Throwable e) {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
@@ -254,7 +254,7 @@ class AsyncCallableDecorator implements AsyncCallable {
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
             // success count
-            recorder.getSuccessor().incrementAndGet();
+            recorder.getSuccess().incrementAndGet();
 
             return result;
         } catch (Throwable e) {

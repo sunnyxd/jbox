@@ -45,7 +45,7 @@ public abstract class AbstractTLogConfig implements Serializable {
 
     private static final long serialVersionUID = 5924881023295492855L;
 
-    private final ConcurrentMap<String, List<SpELConfigEntry>> METHOD_SPEL_MAP = new ConcurrentHashMap<>();
+    private ConcurrentMap<String, List<SpELConfigEntry>> methodSpelMap = new ConcurrentHashMap<>();
 
     private int minPoolSize = MIN_THREAD_POOL_SIZE;
 
@@ -80,7 +80,7 @@ public abstract class AbstractTLogConfig implements Serializable {
         Map<String, Object> jsonObject = JSONObject.parseObject(json, Feature.AutoCloseSource);
         for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
             String key = entry.getKey();
-            List<SpELConfigEntry> spels = METHOD_SPEL_MAP.computeIfAbsent(key, k -> new LinkedList<>());
+            List<SpELConfigEntry> spels = methodSpelMap.computeIfAbsent(key, k -> new LinkedList<>());
             Object value = entry.getValue();
             // 引用其他的配置
             if (value instanceof String && ((String)value).startsWith("#")) {
@@ -102,17 +102,17 @@ public abstract class AbstractTLogConfig implements Serializable {
 
         // 将引用的配置注册进去
         for (Map.Entry<String, String> entry : relativeConfig.entrySet()) {
-            List<SpELConfigEntry> definedConfig = METHOD_SPEL_MAP.computeIfAbsent(entry.getValue(),
+            List<SpELConfigEntry> definedConfig = methodSpelMap.computeIfAbsent(entry.getValue(),
                 (key) -> {
                     throw new TraceException("relative config '" + key + "' is not defined.");
                 });
 
-            METHOD_SPEL_MAP.computeIfAbsent(entry.getKey(), key -> new LinkedList<>()).addAll(definedConfig);
+            methodSpelMap.computeIfAbsent(entry.getKey(), key -> new LinkedList<>()).addAll(definedConfig);
         }
     }
 
     public void setMethodSpelMap(Map<String, List<SpELConfigEntry>> methodSpelMap) {
-        METHOD_SPEL_MAP.putAll(methodSpelMap);
+        this.methodSpelMap.putAll(methodSpelMap);
     }
 
     public void addFilter(TLogFilter filter) {

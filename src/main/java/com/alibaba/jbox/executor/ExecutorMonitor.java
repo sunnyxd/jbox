@@ -4,17 +4,22 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.text.DecimalFormat;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import com.alibaba.jbox.executor.ExecutorManager.FlightRecorder;
 import com.alibaba.jbox.scheduler.ScheduleTask;
@@ -38,11 +43,13 @@ import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SING
 
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.4
+ * @version 1.5
  * @since 2017/8/22 15:32:00.
  */
 public class ExecutorMonitor extends AbstractApplicationContextAware
     implements ScheduleTask, ExecutorLoggerInter, BeanDefinitionRegistryPostProcessor {
+
+    private static Map<String, AtomicLong> beforeInvoked = new HashMap<>();
 
     private static final String ASYNC_KEY = "async";
 
@@ -54,69 +61,110 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
     @Override
     public void invoke() throws Exception {
+        List<Entry<String, ExecutorService>> entrySet = executors.entrySet()
+            .stream()
+            .filter(entry -> !(entry.getValue() instanceof SyncInvokeExecutorService))
+            .sorted((e1, e2) -> e2.getKey().length() - e1.getKey().length())
+            .collect(Collectors.toList());
 
         StringBuilder logBuilder = new StringBuilder(128);
-        long count = executors.entrySet().stream().filter(
-            entry -> !(entry.getValue() instanceof SyncInvokeExecutorService)).count();
-        logBuilder.append("executors group [")
-            .append(count)
-            .append("]:\n");
-
-        ExecutorManager.executors.forEach((group, executorProxy) -> {
-            ThreadPoolExecutor executor = getThreadPoolExecutor(executorProxy);
+        // append group size:
+        logBuilder.append("executors group [").append(entrySet.size()).append("]:\n");
+        for (Map.Entry<String, ExecutorService> entry : entrySet) {
+            String group = entry.getKey();
+            ThreadPoolExecutor executor = getThreadPoolExecutor(entry.getValue());
             if (executor == null) {
-                return;
-            }
-            FlightRecorder recorder = recorders.getOrDefault(group, new FlightRecorder());
-            long successor = recorder.getSuccessor().get();
-            long failure = recorder.getFailure().get();
-            double rt;
-            if (successor == 0 && failure == 0) {
-                rt = 0.0;
-            } else {
-                rt = recorder.getTotalRt().get() * 1.0 / (successor + failure);
+                continue;
             }
 
+            // append group detail:
             BlockingQueue<Runnable> queue = executor.getQueue();
+            Object[] flightRecorder = getFlightRecorder(group);
             logBuilder.append(String.format(
-                "group:[%s] > pool:[%s], active:[%d], core:[%d], max:[%d], successor:[%s], failure:[%s], rt:[%s], "
-                    + "queues:[%d], "
-                    + "remain:[%d]\n",
-                group,
+                "%-33s > pool:[%s], active:[%d], core:[%d], max:[%d], "
+                    + "success:[%s], failure:[%s], "
+                    + "rt:[%s], tps:[%s], "
+                    + "queues:[%d], remain:[%d]\n",
+                "'" + group + "'",
+                /*
+                 *  pool detail
+                 */
                 executor.getPoolSize(),
                 executor.getActiveCount(),
                 executor.getCorePoolSize(),
                 executor.getMaximumPoolSize(),
-                numberFormat(successor),
-                numberFormat(failure),
-                String.format("%.2f", rt),
+
+                /*
+                 * success, failure
+                 */
+                numberFormat(flightRecorder[0]),
+                numberFormat(flightRecorder[1]),
+
+                /*
+                 * rt, tps
+                 */
+                String.format("%.2f", (double)flightRecorder[2]),
+                numberFormat(calcTps(group, (long)flightRecorder[3])),
+
+                /*
+                 * runnable queue
+                 */
                 queue.size(),
                 queue.remainingCapacity()));
 
-            StreamForker<Runnable> forker = new StreamForker<>(queue.stream())
-                .fork(ASYNC_KEY, stream -> stream
-                    .filter(runnable -> runnable instanceof AsyncRunnable)
-                    .collect(new Collector()))
-                .fork(FUTURE_KEY, stream -> stream
-                    .filter(runnable -> runnable instanceof FutureTask)
-                    .map(this::getFutureTaskInnerAsyncObject)
-                    .collect(new Collector()))
-                .fork(CALLABLE_KEY, stream -> stream
-                    .filter(callable -> callable instanceof AsyncCallable)
-                    .collect(new Collector()));
-
-            StreamForker.Results results = forker.getResults();
-            StringBuilder asyncLogBuilder = results.get(ASYNC_KEY);
-            StringBuilder futureLogBuilder = results.get(FUTURE_KEY);
-            StringBuilder callableLogBuilder = results.get(CALLABLE_KEY);
-
-            logBuilder
-                .append(asyncLogBuilder)
-                .append(futureLogBuilder)
-                .append(callableLogBuilder);
-        });
+            // append task detail:
+            StringBuilder[] taskDetailBuilder = getTaskDetailBuilder(queue);
+            for (StringBuilder sb : taskDetailBuilder) {
+                logBuilder.append(sb);
+            }
+        }
 
         monitor.info(logBuilder.toString());
+    }
+
+    private long calcTps(String group, long invoked) {
+        long before = beforeInvoked.computeIfAbsent(group, (k) -> new AtomicLong(0L))
+            .getAndSet(invoked);
+        return (long)((invoked - before) / passedSeconds());
+    }
+
+    private double passedSeconds() {
+        return period * 1.0 / _1S_INTERVAL;
+    }
+
+    private Object[] getFlightRecorder(String group) {
+        FlightRecorder recorder = recorders.getOrDefault(group, new FlightRecorder());
+        long success = recorder.getSuccess().get();
+        long failure = recorder.getFailure().get();
+        double rt;
+        if (success == 0 && failure == 0) {
+            rt = 0.0;
+        } else {
+            rt = recorder.getTotalRt().get() * 1.0 / (success + failure);
+        }
+
+        return new Object[] {success, failure, rt, success + failure};
+    }
+
+    private StringBuilder[] getTaskDetailBuilder(BlockingQueue<Runnable> queue) {
+        StreamForker<Runnable> forker = new StreamForker<>(queue.stream())
+            .fork(ASYNC_KEY, stream -> stream
+                .filter(runnable -> runnable instanceof AsyncRunnable)
+                .collect(new Collector()))
+            .fork(CALLABLE_KEY, stream -> stream
+                .filter(callable -> callable instanceof AsyncCallable)
+                .collect(new Collector()))
+            .fork(FUTURE_KEY, stream -> stream
+                .filter(runnable -> runnable instanceof FutureTask)
+                .map(this::getFutureTaskInnerAsyncObject)
+                .collect(new Collector()));
+
+        StreamForker.Results results = forker.getResults();
+        StringBuilder asyncLogBuilder = results.get(ASYNC_KEY);
+        StringBuilder callableLogBuilder = results.get(CALLABLE_KEY);
+        StringBuilder futureLogBuilder = results.get(FUTURE_KEY);
+
+        return new StringBuilder[] {asyncLogBuilder, callableLogBuilder, futureLogBuilder};
     }
 
     /**

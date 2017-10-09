@@ -74,7 +74,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
         @Override
         public void execute() {
             List<Object> logEntity = new LinkedList<>();
-            logEntity.add(DateUtils.millisFormatFromMillis(event.getRt()));
+            logEntity.add(DateUtils.millisFormatFromMillis(event.getStartTime()));
             logEntity.add(event.getInvokeThread());
             logEntity.add(event.getRt());
             logEntity.add(event.getClassName());
@@ -88,10 +88,11 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             logEntity.add(event.getClientName());                                       // nullable
             logEntity.add(event.getClientIp());                                         // nullable
 
-            String methodKey = event.getClassName() + ":" + event.getMethodName();
-            List<SpELConfigEntry> spels = getMETHOD_SPEL_MAP().getOrDefault(methodKey, Collections.emptyList());
+            List<SpELConfigEntry> spels = getMethodSpelMap().getOrDefault(event.getConfigKey(),
+                Collections.emptyList());
 
-            List<Collection> collectionArgValues = spels.stream().filter(SpELConfigEntry::isMulti).findAny()
+            List<Collection> collectionArgValues = spels.stream()
+                .filter(SpELConfigEntry::isMulti).findAny()
                 .map(multiEntry -> parsMultiConfig(new ArrayList<>(spels), multiEntry, event))
                 .orElseGet(() -> parsSingleConfig(spels, event));
 
@@ -107,7 +108,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
 
         @Override
         public String taskInfo() {
-            return MessageFormatter.format("TLogEventParser {}", event).getMessage();
+            return MessageFormatter.format("TLogEventParser {}", event.getConfigKey()).getMessage();
         }
     }
 

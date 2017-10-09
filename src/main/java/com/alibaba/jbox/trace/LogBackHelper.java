@@ -4,8 +4,8 @@ import java.nio.charset.Charset;
 import java.util.List;
 
 import com.alibaba.jbox.script.ScriptExecutor;
-import com.alibaba.jbox.trace.TLogManager.TLogEventParser;
 import com.alibaba.jbox.trace.AbstractTLogConfig.TLogFilter;
+import com.alibaba.jbox.trace.TLogManager.TLogEventParser;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
@@ -75,13 +75,14 @@ class LogBackHelper {
                 tLogger.addAppender(appender);
                 ScriptExecutor.register(tLogger.getName(), appender);
             } else {
-                tracer.warn("application not used Logback implementation,"
-                    + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
+                tracer.warn("app [{}] not used Logback impl for Log, please set '{}' logger in your logger context manual.",
+                    System.getProperty("project.name", "unknown"),
+                    loggerName);
             }
         } catch (ClassNotFoundException e) {
-            tracer.warn(
-                "class 'ch.qos.logback.classic.Logger' not found(application not used Logback implementation),"
-                    + " please config 'com.alibaba.jbox.trace.TLogManager' logger in your application manual.");
+            tracer.warn("app [{}] not used Logback impl for Log, please set '{}' logger in your logger context manual.",
+                System.getProperty("project.name", "unknown"),
+                loggerName, e);
         }
 
         return logger;

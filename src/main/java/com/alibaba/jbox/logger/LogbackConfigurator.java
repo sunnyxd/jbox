@@ -1,14 +1,14 @@
 package com.alibaba.jbox.logger;
 
+import java.util.Collection;
+import java.util.Map;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import com.google.common.base.Strings;
 import org.slf4j.ILoggerFactory;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collection;
-import java.util.Map;
 
 /**
  * @author jifang.zjf

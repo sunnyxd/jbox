@@ -1,8 +1,5 @@
 package com.alibaba.jbox;
 
-import org.slf4j.*;
-import org.slf4j.impl.StaticLoggerBinder;
-
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
@@ -11,8 +8,7 @@ import org.slf4j.impl.StaticLoggerBinder;
 public class YamlTester {
 
     public static void main(String[] args) {
-        ILoggerFactory loggerFactory = StaticLoggerBinder.getSingleton().getLoggerFactory();
-
-        org.slf4j.Logger logger = LoggerFactory.getLogger("ss");
+        System.out.println(String.format("%-20s, hh", "com.alibaba.jbox:TaskScheduler"));
+        System.out.println(String.format("%-20s, hh", "sss"));
     }
 }

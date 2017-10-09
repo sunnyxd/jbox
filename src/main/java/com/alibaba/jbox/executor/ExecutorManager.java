@@ -169,14 +169,14 @@ public class ExecutorManager implements ExecutorLoggerInter {
 
         private static final long serialVersionUID = -8342765829706151410L;
 
-        private AtomicLong successor;
+        private AtomicLong success;
 
         private AtomicLong failure;
 
         private AtomicLong totalRt;
 
         public FlightRecorder() {
-            this.successor = new AtomicLong(0L);
+            this.success = new AtomicLong(0L);
             this.failure = new AtomicLong(0L);
             this.totalRt = new AtomicLong(0L);
         }
