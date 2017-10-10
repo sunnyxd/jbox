@@ -47,4 +47,14 @@ interface TraceConstants {
      * Abbreviations for placeholder.
      */
     String KEY_PH = "ph";
+
+    String USER_DEF = "def:";
+
+    String DEF_PREFIX = "${";
+
+    String DEF_SUFFIX = "}";
+
+    String REF_PREFIX = "#{";
+
+    String REF_SUFFIX = "}";
 }

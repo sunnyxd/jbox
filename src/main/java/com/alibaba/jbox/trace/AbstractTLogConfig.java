@@ -2,7 +2,9 @@ package com.alibaba.jbox.trace;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,9 +19,11 @@ import java.util.stream.Collectors;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
+import com.alibaba.jbox.utils.JboxUtils;
 
 import com.ali.com.google.common.base.Strings;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.io.CharStreams;
 import lombok.Data;
 import lombok.ToString;
@@ -27,17 +31,22 @@ import org.springframework.core.io.Resource;
 
 import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_MAX_HISTORY;
 import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_RUNNABLE_Q_SIZE;
+import static com.alibaba.jbox.trace.TraceConstants.DEF_PREFIX;
+import static com.alibaba.jbox.trace.TraceConstants.DEF_SUFFIX;
 import static com.alibaba.jbox.trace.TraceConstants.LOG_SUFFIX;
 import static com.alibaba.jbox.trace.TraceConstants.MAX_THREAD_POOL_SIZE;
 import static com.alibaba.jbox.trace.TraceConstants.MIN_THREAD_POOL_SIZE;
 import static com.alibaba.jbox.trace.TraceConstants.PLACEHOLDER;
+import static com.alibaba.jbox.trace.TraceConstants.REF_PREFIX;
+import static com.alibaba.jbox.trace.TraceConstants.REF_SUFFIX;
+import static com.alibaba.jbox.trace.TraceConstants.USER_DEF;
 import static com.alibaba.jbox.trace.TraceConstants.UTF_8;
 
 /**
  * TLogManager统一配置
  *
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.0
+ * @version 1.2
  * @since 2017/9/26 14:09:00.
  */
 @Data
@@ -72,27 +81,31 @@ public abstract class AbstractTLogConfig implements Serializable {
     private String filePath;
 
     public void setSpelResource(Resource spelResource) throws IOException {
-        String json = CharStreams.toString(new InputStreamReader(spelResource.getInputStream()));
-
-        // 支持乱序引用config
-        Map<String, String> relativeConfig = new HashMap<>();
+        String json = readConfig(spelResource);
 
         Map<String, Object> jsonObject = JSONObject.parseObject(json, Feature.AutoCloseSource);
+        // 先将用户自定义def解析出来
+        Map<String, String> defs = parseUserDefs(jsonObject);
+
+        // 支持config乱序引用
+        Map<String, String> refs = new HashMap<>();
         for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
-            String key = entry.getKey();
+            // 替换为最终key
+            String key = replaceRefToValue(entry.getKey(), defs);
+
             List<SpELConfigEntry> spels = methodSpelMap.computeIfAbsent(key, k -> new LinkedList<>());
             Object value = entry.getValue();
-            // 引用其他的配置
-            if (value instanceof String && ((String)value).startsWith("#")) {
-                relativeConfig.put(key, ((String)value).substring(1));
-            }
-            // 新创建的配置
-            else if (value instanceof JSONArray) {
+            if (value instanceof String) {                                  // 引用的其他配置
+                String refConfig = parseRefConfigValue(value, defs);
+                refs.put(key, refConfig);
+            } else if (value instanceof JSONArray) {                        // 新创建的配置
                 List<SpELConfigEntry> newConfigs = SpELConfigEntry.parseEntriesFromJsonArray((JSONArray)value);
                 spels.addAll(newConfigs);
-            }
-            // 错误的配置语法
-            else {
+
+                // @since 1.2支持methodName缩写引用
+                String methodName = Splitter.on(":").splitToList(key).get(1);
+                methodSpelMap.put(methodName, spels);
+            } else {                                                        // 错误的配置语法
                 throw new TraceException(
                     "your config '" + value
                         + "' is not relative defined config or not a new config. please check your config syntax is "
@@ -101,7 +114,7 @@ public abstract class AbstractTLogConfig implements Serializable {
         }
 
         // 将引用的配置注册进去
-        for (Map.Entry<String, String> entry : relativeConfig.entrySet()) {
+        for (Map.Entry<String, String> entry : refs.entrySet()) {
             List<SpELConfigEntry> definedConfig = methodSpelMap.computeIfAbsent(entry.getValue(),
                 (key) -> {
                     throw new TraceException("relative config '" + key + "' is not defined.");
@@ -150,6 +163,67 @@ public abstract class AbstractTLogConfig implements Serializable {
         }
 
         FilterReply decide(String formattedMessage) throws Exception;
+    }
+
+    private String readConfig(Resource resource) throws IOException {
+        try (InputStream is = resource.getInputStream();
+             Reader reader = new InputStreamReader(is)) {
+            return CharStreams.toString(reader);
+        }
+    }
+
+    private Map<String, String> parseUserDefs(Map<String, Object> jsonObject) {
+        Map<String, String> defs = new HashMap<>();
+        List<String> needRemoveKeys = new LinkedList<>();
+        for (Entry<String, Object> entry : jsonObject.entrySet()) {
+            String key = entry.getKey();
+
+            if (!key.startsWith(USER_DEF) || !(entry.getValue() instanceof String)) {
+                continue;
+            }
+
+            String defKey = key.substring(USER_DEF.length()).trim();
+            defKey = JboxUtils.trimPrefixAndSuffix(defKey, DEF_PREFIX, DEF_SUFFIX);
+            defs.put(defKey, (String)entry.getValue());
+
+            needRemoveKeys.add(key);
+        }
+
+        for (String key : needRemoveKeys) {
+            jsonObject.remove(key);
+        }
+
+        return defs;
+    }
+
+    private String replaceRefToValue(String key, Map<String, String> defs) {
+        int prefixIdx = key.indexOf(DEF_PREFIX);
+        int suffixIdx = key.indexOf(DEF_SUFFIX);
+
+        if (prefixIdx != -1 && suffixIdx != -1) {
+            String ref = key.substring(prefixIdx, suffixIdx + DEF_SUFFIX.length());
+            String trimmedRef = JboxUtils.trimPrefixAndSuffix(ref, DEF_PREFIX, DEF_SUFFIX);
+            String refValue = defs.computeIfAbsent(trimmedRef, (k) -> {
+                throw new TraceException("relative def '" + ref + "' is not defined.");
+            });
+
+            key = key.replace(ref, refValue);
+        }
+
+        return key;
+    }
+
+    private String parseRefConfigValue(Object entryValue, Map<String, String> defs) {
+        String strValue = replaceRefToValue((String)entryValue, defs);
+        if (strValue.startsWith(REF_PREFIX) && strValue.endsWith(REF_SUFFIX)) {
+            String configRef = JboxUtils.trimPrefixAndSuffix(strValue, DEF_PREFIX, DEF_SUFFIX, false);
+            return configRef;
+        } else {
+            throw new TraceException(
+                "your config '" + entryValue
+                    + "' is not relative defined config or not a new config. please check your config syntax is "
+                    + "correct or mail to jifang.zjf@alibaba-inc.com.");
+        }
     }
 
     @ToString

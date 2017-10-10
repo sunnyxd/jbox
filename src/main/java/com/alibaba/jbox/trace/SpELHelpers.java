@@ -34,12 +34,13 @@ public class SpELHelpers {
         Method ifNotEmptyGet = ReflectionUtils.findMethod(SpELHelpers.class, "ifNotEmptyGet", List.class, int.class);
         Method ifEmptyGetDefault = ReflectionUtils.findMethod(SpELHelpers.class, "ifEmptyGetDefault", List.class,
             Object.class, int.class);
-        CUSTOM_METHODS.add(isNotEmpty);
-        CUSTOM_METHODS.add(ifNotEmptyGet);
-        CUSTOM_METHODS.add(ifEmptyGetDefault);
+
+        registerFunction(isNotEmpty);
+        registerFunction(ifNotEmptyGet);
+        registerFunction(ifEmptyGetDefault);
     }
 
-    public void registerFunction(Method staticMethod) {
+    public static void registerFunction(Method staticMethod) {
         Preconditions.checkArgument(Modifier.isStatic(staticMethod.getModifiers()),
             "method [%s] is not static, SpEL is not support.", staticMethod);
 

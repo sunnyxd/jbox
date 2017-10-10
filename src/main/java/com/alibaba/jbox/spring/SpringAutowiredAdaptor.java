@@ -1,12 +1,15 @@
 package com.alibaba.jbox.spring;
 
+import java.lang.reflect.Field;
+
+import javax.annotation.Resource;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.ReflectionUtils;
 
-import javax.annotation.Resource;
-import java.lang.reflect.Field;
+import static com.alibaba.jbox.utils.JboxUtils.trimPrefixAndSuffix;
 
 /**
  * 使非Spring托管的Bean可以使用`@Autowired`、`@Resource`、`@Value`注解
@@ -22,8 +25,8 @@ public abstract class SpringAutowiredAdaptor {
         Field[] fields = this.getClass().getDeclaredFields();
         for (Field field : fields) {
             if (field.isAnnotationPresent(Autowired.class)
-                    || field.isAnnotationPresent(Resource.class)
-                    || field.isAnnotationPresent(Value.class)) {
+                || field.isAnnotationPresent(Resource.class)
+                || field.isAnnotationPresent(Value.class)) {
 
                 Value value;
                 Qualifier qualifier;
@@ -34,11 +37,13 @@ public abstract class SpringAutowiredAdaptor {
                     // 以使其具备动态修改@Value属性的能力
                     DiamondPropertySourcesPlaceholder.registerSpringOuterBean(this);
 
-                    Object property = DiamondPropertySourcesPlaceholder.getProperty(trimPrefixAndSuffix(value.value()));
+                    Object property = DiamondPropertySourcesPlaceholder.getProperty(
+                        trimPrefixAndSuffix(value.value(), "${", "}"));
                     if (property == null) {
                         throw new RuntimeException("could not found the config " + value.value() + " value");
                     }
-                    beanValue = DiamondPropertySourcesPlaceholder.convertTypeValue((String) property, field.getType(), field.getGenericType());
+                    beanValue = DiamondPropertySourcesPlaceholder.convertTypeValue((String)property, field.getType(),
+                        field.getGenericType());
                 } else if ((qualifier = field.getAnnotation(Qualifier.class)) != null) {
                     beanValue = DiamondPropertySourcesPlaceholder.getSpringBean(qualifier.value());
                 } else {
@@ -52,16 +57,5 @@ public abstract class SpringAutowiredAdaptor {
                 }
             }
         }
-    }
-
-    private String trimPrefixAndSuffix(String value) {
-        if (value.startsWith("${")) {
-            value = value.substring("${".length());
-        }
-        if (value.endsWith("}")) {
-            value = value.substring(0, value.length() - 1);
-        }
-
-        return value;
     }
 }

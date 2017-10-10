@@ -174,4 +174,23 @@ public class JboxUtils {
 
         return beanName;
     }
+
+    public static String trimPrefixAndSuffix(String value, String prefix, String suffix, boolean isNeedJudge) {
+        if (!isNeedJudge) {
+            return value.substring(prefix.length(), value.length() - suffix.length());
+        } else {
+            return trimPrefixAndSuffix(value, prefix, suffix);
+        }
+    }
+
+    public static String trimPrefixAndSuffix(String value, String prefix, String suffix) {
+        if (value.startsWith(prefix)) {
+            value = value.substring(prefix.length());
+        }
+        if (value.endsWith(suffix)) {
+            value = value.substring(0, value.length() - suffix.length());
+        }
+
+        return value;
+    }
 }
