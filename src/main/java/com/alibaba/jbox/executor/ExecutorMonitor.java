@@ -93,7 +93,7 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
                 "%-" + getMaxGroupSize(entrySet) + "s > pool:[%s], active:[%d], core:[%d], max:[%d], "
                     + "success:[%s], failure:[%s], "
                     + "rt:[%s], tps:[%s], "
-                    + "queues:[%d], remain:[%d]\n",
+                    + "queues:[%d], remains:[%d]\n",
 
                 /*
                  * group
