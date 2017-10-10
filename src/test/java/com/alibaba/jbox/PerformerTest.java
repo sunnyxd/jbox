@@ -2,7 +2,7 @@ package com.alibaba.jbox;
 
 import java.util.concurrent.ArrayBlockingQueue;
 
-import com.alibaba.jbox.executor.ExecutorLoggerInter;
+import com.alibaba.jbox.executor.ExecutorLoggerInner;
 import com.alibaba.jbox.executor.policy.CallerRunsPolicy;
 import com.alibaba.jbox.utils.Performer;
 
@@ -12,7 +12,7 @@ import org.junit.Test;
  * @author jifang
  * @since 2016/11/10 下午5:07.
  */
-public class PerformerTest implements ExecutorLoggerInter {
+public class PerformerTest implements ExecutorLoggerInner {
 
     @Test
     public void test() {

@@ -47,7 +47,7 @@ import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SING
  * @since 2017/8/22 15:32:00.
  */
 public class ExecutorMonitor extends AbstractApplicationContextAware
-    implements ScheduleTask, ExecutorLoggerInter, BeanDefinitionRegistryPostProcessor {
+    implements ScheduleTask, ExecutorLoggerInner, BeanDefinitionRegistryPostProcessor {
 
     private static Map<String, AtomicLong> beforeInvoked = new HashMap<>();
 
@@ -58,6 +58,15 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
     private static final String CALLABLE_KEY = "callable";
 
     private long period = _1M_INTERVAL;
+
+    private Integer maxGroupSize = null;
+
+    private int getMaxGroupSize(List<Entry<String, ExecutorService>> groupEntries) {
+        if (maxGroupSize == null) {
+            maxGroupSize = groupEntries.get(0).getKey().length() + "'' ".length();
+        }
+        return maxGroupSize;
+    }
 
     @Override
     public void invoke() throws Exception {
@@ -81,10 +90,14 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             BlockingQueue<Runnable> queue = executor.getQueue();
             Object[] flightRecorder = getFlightRecorder(group);
             logBuilder.append(String.format(
-                "%-33s > pool:[%s], active:[%d], core:[%d], max:[%d], "
+                "%-" + getMaxGroupSize(entrySet) + "s > pool:[%s], active:[%d], core:[%d], max:[%d], "
                     + "success:[%s], failure:[%s], "
                     + "rt:[%s], tps:[%s], "
                     + "queues:[%d], remain:[%d]\n",
+
+                /*
+                 * group
+                 */
                 "'" + group + "'",
                 /*
                  *  pool detail
@@ -110,7 +123,8 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
                  * runnable queue
                  */
                 queue.size(),
-                queue.remainingCapacity()));
+                queue.remainingCapacity()
+            ));
 
             // append task detail:
             StringBuilder[] taskDetailBuilder = getTaskDetailBuilder(queue);

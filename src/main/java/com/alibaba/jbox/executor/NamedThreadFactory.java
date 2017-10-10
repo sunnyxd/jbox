@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @version 1.1
  * @since 2017/1/16 14:25:00.
  */
-public class NamedThreadFactory implements ThreadFactory, ExecutorLoggerInter {
+public class NamedThreadFactory implements ThreadFactory, ExecutorLoggerInner {
 
     private final AtomicInteger number = new AtomicInteger(0);
 

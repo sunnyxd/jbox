@@ -43,7 +43,7 @@ import lombok.Data;
  * @version 1.3
  * @since 2017/1/16 14:15:00.
  */
-public class ExecutorManager implements ExecutorLoggerInter {
+public class ExecutorManager implements ExecutorLoggerInner {
 
     private static final String SYNC_PATTERN = "sync-%s";
 

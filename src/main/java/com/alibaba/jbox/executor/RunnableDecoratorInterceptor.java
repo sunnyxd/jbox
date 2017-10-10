@@ -24,6 +24,14 @@ import static com.alibaba.jbox.executor.ExecutorManager.recorders;
  */
 class RunnableDecoratorInterceptor implements InvocationHandler {
 
+    private static final Set<String> NEED_PROXY_METHODS = Sets.newConcurrentHashSet(Arrays.asList(
+        "execute",
+        "submit",
+        "schedule",
+        "scheduleAtFixedRate",
+        "scheduleWithFixedDelay"
+    ));
+
     private String group;
 
     private ExecutorService target;
@@ -33,14 +41,6 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
         this.target = target;
     }
 
-    private static final Set<String> NEED_PROXY_METHODS = Sets.newConcurrentHashSet(Arrays.asList(
-        "execute",
-        "submit",
-        "schedule",
-        "scheduleAtFixedRate",
-        "scheduleWithFixedDelay"
-    ));
-
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String methodName = method.getName();
@@ -48,15 +48,15 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
             Object rpcContext = EagleEye.getRpcContext();
             Object firstArg = args[0];
             FlightRecorder recorder = recorders.computeIfAbsent(group, (k) -> new FlightRecorder());
-
+            Context context = new Context(Thread.currentThread(), group);
             if (firstArg instanceof AsyncRunnable) {
-                args[0] = new AsyncRunnableDecorator(recorder, (AsyncRunnable)firstArg, rpcContext);
+                args[0] = new AsyncRunnableDecorator(context, recorder, (AsyncRunnable)firstArg, rpcContext);
             } else if (firstArg instanceof AsyncCallable) {
-                args[0] = new AsyncCallableDecorator(recorder, (AsyncCallable)firstArg, rpcContext);
+                args[0] = new AsyncCallableDecorator(context, recorder, (AsyncCallable)firstArg, rpcContext);
             } else if (firstArg instanceof Runnable) {
-                args[0] = new RunnableDecorator(recorder, (Runnable)firstArg, rpcContext);
+                args[0] = new RunnableDecorator(context, recorder, (Runnable)firstArg, rpcContext);
             } else if (firstArg instanceof Callable) {
-                args[0] = new CallableDecorator(recorder, (Callable)firstArg, rpcContext);
+                args[0] = new CallableDecorator(context, recorder, (Callable)firstArg, rpcContext);
             }
         }
 
@@ -66,13 +66,19 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
 
 class RunnableDecorator implements AsyncRunnable {
 
+    private Context context;
+
     private FlightRecorder recorder;
 
     private Runnable runnable;
 
     private Object rpcContext;
 
-    RunnableDecorator(FlightRecorder recorder, @NonNull Runnable runnable, Object rpcContext) {
+    RunnableDecorator(@NonNull Context context,
+                      @NonNull FlightRecorder recorder,
+                      @NonNull Runnable runnable,
+                      Object rpcContext) {
+        this.context = context;
         this.recorder = recorder;
         this.runnable = runnable;
         this.rpcContext = rpcContext;
@@ -88,7 +94,9 @@ class RunnableDecorator implements AsyncRunnable {
         try {
             long start = System.currentTimeMillis();
 
+            beforeExecute(context);
             runnable.run();
+            afterExecute(context);
 
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
@@ -98,6 +106,7 @@ class RunnableDecorator implements AsyncRunnable {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
+            afterThrowing(e, context);
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -114,9 +123,20 @@ class RunnableDecorator implements AsyncRunnable {
 
     @Override
     public void execute() { }
+
+    @Override
+    public void beforeExecute(final Context context) { }
+
+    @Override
+    public void afterExecute(final Context context) { }
+
+    @Override
+    public void afterThrowing(Throwable t, final Context context) { }
 }
 
 class CallableDecorator implements AsyncCallable {
+
+    private Context context;
 
     private FlightRecorder recorder;
 
@@ -124,13 +144,18 @@ class CallableDecorator implements AsyncCallable {
 
     private Object rpcContext;
 
-    CallableDecorator(FlightRecorder recorder, @NonNull Callable callable, Object rpcContext) {
+    CallableDecorator(@NonNull Context context,
+                      @NonNull FlightRecorder recorder,
+                      @NonNull Callable callable,
+                      Object rpcContext) {
+        this.context = context;
         this.recorder = recorder;
         this.callable = callable;
         this.rpcContext = rpcContext;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Object call() throws Exception {
         EagleEye.setRpcContext(rpcContext);
         String traceId = EagleEye.getTraceId();
@@ -140,7 +165,9 @@ class CallableDecorator implements AsyncCallable {
         try {
             long start = System.currentTimeMillis();
 
+            beforeExecute(context);
             Object result = callable.call();
+            afterExecute(result, context);
 
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
@@ -153,6 +180,7 @@ class CallableDecorator implements AsyncCallable {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
+            afterThrowing(e, context);
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -171,9 +199,20 @@ class CallableDecorator implements AsyncCallable {
     public Object execute() throws Exception {
         return null;
     }
+
+    @Override
+    public void beforeExecute(final Context context) { }
+
+    @Override
+    public void afterExecute(Object result, final Context context) { }
+
+    @Override
+    public void afterThrowing(Throwable t, final Context context) { }
 }
 
 class AsyncRunnableDecorator implements AsyncRunnable {
+
+    private Context context;
 
     private FlightRecorder recorder;
 
@@ -181,8 +220,11 @@ class AsyncRunnableDecorator implements AsyncRunnable {
 
     private Object rpcContext;
 
-    AsyncRunnableDecorator(FlightRecorder recorder, @NonNull AsyncRunnable asyncRunnable,
+    AsyncRunnableDecorator(@NonNull Context context,
+                           @NonNull FlightRecorder recorder,
+                           @NonNull AsyncRunnable asyncRunnable,
                            Object rpcContext) {
+        this.context = context;
         this.recorder = recorder;
         this.asyncRunnable = asyncRunnable;
         this.rpcContext = rpcContext;
@@ -197,7 +239,11 @@ class AsyncRunnableDecorator implements AsyncRunnable {
         }
         try {
             long start = System.currentTimeMillis();
+
+            beforeExecute(context);
             asyncRunnable.execute();
+            afterExecute(context);
+
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
             // success count
@@ -206,6 +252,7 @@ class AsyncRunnableDecorator implements AsyncRunnable {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
+            afterThrowing(e, context);
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -222,9 +269,26 @@ class AsyncRunnableDecorator implements AsyncRunnable {
 
     @Override
     public void execute() { }
+
+    @Override
+    public void beforeExecute(final Context context) {
+        asyncRunnable.beforeExecute(context);
+    }
+
+    @Override
+    public void afterExecute(final Context context) {
+        asyncRunnable.afterExecute(context);
+    }
+
+    @Override
+    public void afterThrowing(Throwable t, final Context context) {
+        asyncRunnable.afterThrowing(t, context);
+    }
 }
 
 class AsyncCallableDecorator implements AsyncCallable {
+
+    private Context context;
 
     private FlightRecorder recorder;
 
@@ -232,14 +296,18 @@ class AsyncCallableDecorator implements AsyncCallable {
 
     private Object rpcContext;
 
-    AsyncCallableDecorator(FlightRecorder recorder, @NonNull AsyncCallable asyncCallable,
+    AsyncCallableDecorator(@NonNull Context context,
+                           @NonNull FlightRecorder recorder,
+                           @NonNull AsyncCallable asyncCallable,
                            Object rpcContext) {
+        this.context = context;
         this.recorder = recorder;
         this.asyncCallable = asyncCallable;
         this.rpcContext = rpcContext;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Object call() throws Exception {
         EagleEye.setRpcContext(rpcContext);
         String traceId = EagleEye.getTraceId();
@@ -249,7 +317,9 @@ class AsyncCallableDecorator implements AsyncCallable {
         try {
             long start = System.currentTimeMillis();
 
+            beforeExecute(context);
             Object result = asyncCallable.execute();
+            afterExecute(result, context);
 
             // invoke rt
             recorder.getTotalRt().addAndGet((System.currentTimeMillis() - start));
@@ -261,6 +331,7 @@ class AsyncCallableDecorator implements AsyncCallable {
             logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
+            afterThrowing(e, context);
             throw e;
         } finally {
             if (!Strings.isNullOrEmpty(traceId)) {
@@ -278,5 +349,21 @@ class AsyncCallableDecorator implements AsyncCallable {
     @Override
     public Object execute() throws Exception {
         return null;
+    }
+
+    @Override
+    public void beforeExecute(final Context context) {
+        asyncCallable.beforeExecute(context);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void afterExecute(Object result, final Context context) {
+        asyncCallable.afterExecute(result, context);
+    }
+
+    @Override
+    public void afterThrowing(Throwable t, final Context context) {
+        asyncCallable.afterThrowing(t, context);
     }
 }

@@ -4,13 +4,13 @@ import java.util.Objects;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import com.alibaba.jbox.executor.AsyncRunnable;
-import com.alibaba.jbox.executor.ExecutorLoggerInter;
+import com.alibaba.jbox.executor.ExecutorLoggerInner;
 
 /**
  * @author jifang
  * @since 2017/1/18 下午4:31.
  */
-public class DiscardOldestPolicy extends ThreadPoolExecutor.DiscardOldestPolicy implements ExecutorLoggerInter {
+public class DiscardOldestPolicy extends ThreadPoolExecutor.DiscardOldestPolicy implements ExecutorLoggerInner {
 
     private String group;
 

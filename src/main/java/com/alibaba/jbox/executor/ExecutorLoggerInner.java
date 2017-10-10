@@ -10,7 +10,7 @@ import org.slf4j.helpers.MessageFormatter;
  * @author jifang
  * @since 2017/1/16 下午5:39.
  */
-public interface ExecutorLoggerInter {
+public interface ExecutorLoggerInner {
 
     String TRACE_ID = "traceId";
 
