@@ -85,6 +85,7 @@ public class TraceAspect extends AbstractTraceConfig {
             String methodName = method.getName();
             String configKey = String.format(CONFIG_KEY_PATTERN, className, methodName);
 
+            logEvent.setMethod(method);
             logEvent.setClassName(className);
             logEvent.setMethodName(methodName);
             logEvent.setConfigKey(configKey);

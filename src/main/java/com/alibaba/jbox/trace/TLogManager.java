@@ -147,7 +147,8 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
                                      int multiIdx, SpELConfig multiConfig) {
             // 0) 首先拿非multi的Config计算: 非multi的SpELConfig内只有paramEL内有值/有效
             List<String> notMultiParamELs = notMultiSpELConfigs.stream().map(SpELConfig::getParamEL).collect(toList());
-            List<Object> notMultiEvalResults = SpELHelpers.evalSpelWithEvent(logEvent, notMultiParamELs, getPlaceHolder());
+            List<Object> notMultiEvalResults = SpELHelpers.evalSpelWithEvent(logEvent, notMultiParamELs,
+                getPlaceHolder());
 
             // 1) 根据multiPramEL提取出ListArg
             List<Object> multiArgs = SpELHelpers.evalSpelWithEvent(event,
@@ -212,7 +213,8 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
 
         @Override
         public String taskInfo() {
-            return MessageFormatter.format("{}: [{}]", this.getClass().getSimpleName(), event.getConfigKey())
+            return MessageFormatter.format("{}: [{}]",
+                this.getClass().getSimpleName(), event.getMethod().toGenericString())
                 .getMessage();
         }
     }

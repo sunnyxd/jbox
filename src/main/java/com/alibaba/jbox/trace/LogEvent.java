@@ -1,5 +1,7 @@
 package com.alibaba.jbox.trace;
 
+import java.lang.reflect.Method;
+
 import com.alibaba.jbox.utils.JboxUtils;
 
 import com.taobao.eagleeye.EagleEye;
@@ -56,4 +58,6 @@ class LogEvent {
      * don't need record
      */
     String configKey;
+
+    Method method;
 }
