@@ -6,8 +6,6 @@ import java.util.List;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static com.alibaba.jbox.trace.SpELHelpers.registerFunctions;
-
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
@@ -37,7 +35,7 @@ public class SeplTeset {
         List<User> lists = new LinkedList<>();
         lists.add(new User("feiqing"));
         StandardEvaluationContext context = new StandardEvaluationContext();
-        registerFunctions(context);
+        //leadInFunctions(context);
         context.setVariable("args", lists);
         context.setVariable("ph", "-");
         Object value = SPEL_PARSER.parseExpression("#ifNotEmptyGet(#args, 0)?.name").getValue(context);

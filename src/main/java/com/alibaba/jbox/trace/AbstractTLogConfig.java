@@ -54,7 +54,8 @@ public abstract class AbstractTLogConfig implements Serializable {
 
     private static final long serialVersionUID = 5924881023295492855L;
 
-    private ConcurrentMap<String, List<SpELConfigEntry>> methodSpelMap = new ConcurrentHashMap<>();
+    // class:method -> configs
+    private ConcurrentMap<String, List<SpELConfig>> methodSpelMap = new ConcurrentHashMap<>();
 
     private int minPoolSize = MIN_THREAD_POOL_SIZE;
 
@@ -91,19 +92,19 @@ public abstract class AbstractTLogConfig implements Serializable {
         Map<String, String> refs = new HashMap<>();
         for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
             // 替换为最终key
-            String key = replaceRefToValue(entry.getKey(), defs);
+            String methodKey = replaceRefToDef(entry.getKey(), defs);
 
-            List<SpELConfigEntry> spels = methodSpelMap.computeIfAbsent(key, k -> new LinkedList<>());
+            List<SpELConfig> spels = methodSpelMap.computeIfAbsent(methodKey, k -> new ArrayList<>());
             Object value = entry.getValue();
             if (value instanceof String) {                                  // 引用的其他配置
-                String refConfig = parseRefConfigValue(value, defs);
-                refs.put(key, refConfig);
+                String refConfig = parseRefToConfig((String)value, defs);
+                refs.put(methodKey, refConfig);
             } else if (value instanceof JSONArray) {                        // 新创建的配置
-                List<SpELConfigEntry> newConfigs = SpELConfigEntry.parseEntriesFromJsonArray((JSONArray)value);
+                List<SpELConfig> newConfigs = SpELConfig.parseEntriesFromJsonArray((JSONArray)value);
                 spels.addAll(newConfigs);
 
                 // @since 1.2支持methodName缩写引用
-                String methodName = Splitter.on(":").splitToList(key).get(1);
+                String methodName = Splitter.on(":").splitToList(methodKey).get(1);
                 methodSpelMap.put(methodName, spels);
             } else {                                                        // 错误的配置语法
                 throw new TraceException(
@@ -115,7 +116,7 @@ public abstract class AbstractTLogConfig implements Serializable {
 
         // 将引用的配置注册进去
         for (Map.Entry<String, String> entry : refs.entrySet()) {
-            List<SpELConfigEntry> definedConfig = methodSpelMap.computeIfAbsent(entry.getValue(),
+            List<SpELConfig> definedConfig = methodSpelMap.computeIfAbsent(entry.getValue(),
                 (key) -> {
                     throw new TraceException("relative config '" + key + "' is not defined.");
                 });
@@ -124,7 +125,7 @@ public abstract class AbstractTLogConfig implements Serializable {
         }
     }
 
-    public void setMethodSpelMap(Map<String, List<SpELConfigEntry>> methodSpelMap) {
+    public void setMethodSpelMap(Map<String, List<SpELConfig>> methodSpelMap) {
         this.methodSpelMap.putAll(methodSpelMap);
     }
 
@@ -196,88 +197,106 @@ public abstract class AbstractTLogConfig implements Serializable {
         return defs;
     }
 
-    private String replaceRefToValue(String key, Map<String, String> defs) {
-        int prefixIdx = key.indexOf(DEF_PREFIX);
-        int suffixIdx = key.indexOf(DEF_SUFFIX);
+    /**
+     * 将ref引用的def替换为实际值
+     *
+     * @param original
+     * @param defs
+     * @return
+     */
+    private String replaceRefToDef(String original, Map<String, String> defs) {
+        int prefixIdx = original.indexOf(DEF_PREFIX);
+        int suffixIdx = original.indexOf(DEF_SUFFIX);
 
         if (prefixIdx != -1 && suffixIdx != -1) {
-            String ref = key.substring(prefixIdx, suffixIdx + DEF_SUFFIX.length());
+            String ref = original.substring(prefixIdx, suffixIdx + DEF_SUFFIX.length());
             String trimmedRef = JboxUtils.trimPrefixAndSuffix(ref, DEF_PREFIX, DEF_SUFFIX);
             String refValue = defs.computeIfAbsent(trimmedRef, (k) -> {
                 throw new TraceException("relative def '" + ref + "' is not defined.");
             });
 
-            key = key.replace(ref, refValue);
+            original = original.replace(ref, refValue);
         }
 
-        return key;
+        return original;
     }
 
-    private String parseRefConfigValue(Object entryValue, Map<String, String> defs) {
-        String strValue = replaceRefToValue((String)entryValue, defs);
-        if (strValue.startsWith(REF_PREFIX) && strValue.endsWith(REF_SUFFIX)) {
-            String configRef = JboxUtils.trimPrefixAndSuffix(strValue, DEF_PREFIX, DEF_SUFFIX, false);
-            return configRef;
+    /**
+     * 将ref引用还原
+     *
+     * @param original
+     * @param defs
+     * @return
+     */
+    private String parseRefToConfig(String original, Map<String, String> defs) {
+        // 将original中包含的ref-def字段替换为实际值
+        String originalValue = replaceRefToDef(original, defs);
+        if (originalValue.startsWith(REF_PREFIX) && originalValue.endsWith(REF_SUFFIX)) {
+            String refConfig = JboxUtils.trimPrefixAndSuffix(originalValue, DEF_PREFIX, DEF_SUFFIX, false);
+            return refConfig;
         } else {
             throw new TraceException(
-                "your config '" + entryValue
+                "your config '" + original
                     + "' is not relative defined config or not a new config. please check your config syntax is "
                     + "correct or mail to jifang.zjf@alibaba-inc.com.");
         }
     }
 
     @ToString
-    public static class SpELConfigEntry implements Map.Entry<String, List<String>> {
+    public static class SpELConfig {
 
-        private String key;
+        private String paramEL;
 
-        private List<String> value;
+        private List<String> inListParamEL;
 
-        public SpELConfigEntry(String key, List<String> value) {
-            this.key = key;
-            this.value = value;
+        public SpELConfig(String paramEL, List<String> inListParamEL) {
+            this.paramEL = paramEL;
+            this.inListParamEL = inListParamEL;
         }
 
-        public static List<SpELConfigEntry> parseEntriesFromJsonArray(JSONArray array) {
-            List<SpELConfigEntry> entries = new ArrayList<>(array.size());
+        public static List<SpELConfig> parseEntriesFromJsonArray(JSONArray array) {
+            List<SpELConfig> configs = new ArrayList<>(array.size());
             for (Object jsonEntry : array) {
-                String key = null;
-                List<String> value = null;
+                String paramEL = null;
+                List<String> inListParamEL = null;
 
                 if (jsonEntry instanceof String) {
-                    key = (String)jsonEntry;
+                    paramEL = (String)jsonEntry;
                 } else if (jsonEntry instanceof JSONObject) {
                     JSONObject jsonObject = (JSONObject)jsonEntry;
                     Preconditions.checkArgument(jsonObject.size() == 1);
 
                     Entry<String, Object> next = jsonObject.entrySet().iterator().next();
-                    key = next.getKey();
-                    value = ((JSONArray)next.getValue()).stream().map(Object::toString).collect(Collectors.toList());
+                    Preconditions.checkArgument(next.getValue() instanceof JSONArray);
+                    paramEL = next.getKey();
+                    inListParamEL = ((JSONArray)next.getValue()).stream().map(Object::toString).collect(
+                        Collectors.toList());
                 }
 
-                entries.add(new SpELConfigEntry(key, value));
+                configs.add(new SpELConfig(paramEL, inListParamEL));
             }
 
-            return entries;
+            return configs;
         }
 
         public boolean isMulti() {
-            return this.value != null;
+            return this.inListParamEL != null;
         }
 
-        @Override
-        public String getKey() {
-            return key;
+        public String getParamEL() {
+            return paramEL;
         }
 
-        @Override
-        public List<String> getValue() {
-            return this.value;
+        public void setParamEL(String paramEL) {
+            this.paramEL = paramEL;
         }
 
-        @Override
-        public List<String> setValue(List<String> value) {
-            return this.value = value;
+        public List<String> getInListParamEL() {
+            return inListParamEL;
+        }
+
+        public void setInListParamEL(List<String> inListParamEL) {
+            this.inListParamEL = inListParamEL;
         }
     }
 }

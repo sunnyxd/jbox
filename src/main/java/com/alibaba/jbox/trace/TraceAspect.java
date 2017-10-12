@@ -33,6 +33,8 @@ import org.springframework.util.ReflectionUtils;
 import static com.alibaba.jbox.trace.TraceConstants.CONFIG_KEY_PATTERN;
 import static com.alibaba.jbox.trace.TraceConstants.TRACE_ID;
 import static com.alibaba.jbox.trace.TraceConstants.tracer;
+import static com.alibaba.jbox.utils.JboxUtils.getAbstractMethod;
+import static com.alibaba.jbox.utils.JboxUtils.getImplMethod;
 import static com.alibaba.jbox.utils.JboxUtils.getSimplifiedMethodName;
 
 /**
@@ -78,7 +80,7 @@ public class TraceAspect extends AbstractTraceConfig {
             logEvent.setStartTime(start);
 
             // class、method、configKey
-            Method method = JboxUtils.getImplMethod(joinPoint);
+            Method method = isUseAbstractMethod() ? getAbstractMethod(joinPoint) : getImplMethod(joinPoint);
             String className = method.getDeclaringClass().getName();
             String methodName = method.getName();
             String configKey = String.format(CONFIG_KEY_PATTERN, className, methodName);
@@ -152,7 +154,7 @@ public class TraceAspect extends AbstractTraceConfig {
         if (!getTLogManagers().isEmpty()) {
             event.init();
             for (TLogManager tLogManager : getTLogManagers()) {
-                tLogManager.postTLogEvent(event);
+                tLogManager.postLogEvent(event);
             }
         }
     }
@@ -239,11 +241,11 @@ public class TraceAspect extends AbstractTraceConfig {
         return rt > threshold;
     }
 
-    private String buildLogContent(Method abstractMethod, long costTime, Object[] args, Object resultObj) {
+    private String buildLogContent(Method method, long costTime, Object[] args, Object resultObj) {
         StringBuilder logBuilder = new StringBuilder(120);
         logBuilder
             .append("method: [")
-            .append(getSimplifiedMethodName(abstractMethod))
+            .append(getSimplifiedMethodName(method))
             .append("] invoke rt [")
             .append(costTime)
             .append("]ms");

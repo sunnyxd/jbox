@@ -1,7 +1,9 @@
 package com.alibaba.jbox;
 
+import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.scheduler.ScheduleTask;
 import com.alibaba.jbox.scheduler.TaskScheduler;
+
 import org.junit.Test;
 
 /**
@@ -29,5 +31,14 @@ public class TaskSchedulerTest {
 
         Thread.sleep(10000000);
         scheduler.shutdown();
+    }
+
+    @Test
+    public void test2() {
+        JSONObject jsonObject = JSONObject.parseObject("{\n"
+            + "\"nihao\":\"nihao\",\n"
+            + "\"nihao\":\"test\"\n"
+            + "}");
+        System.out.println(jsonObject);
     }
 }

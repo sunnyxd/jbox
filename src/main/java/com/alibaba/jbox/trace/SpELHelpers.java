@@ -8,10 +8,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import com.google.common.base.Preconditions;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.springframework.util.ReflectionUtils;
 
 import static com.alibaba.jbox.trace.TraceConstants.KEY_ARGS;
 import static com.alibaba.jbox.trace.TraceConstants.KEY_PH;
@@ -30,24 +28,43 @@ public class SpELHelpers {
     private static List<Method> CUSTOM_METHODS = new CopyOnWriteArrayList<>();
 
     static {
-        Method isNotEmpty = ReflectionUtils.findMethod(SpELHelpers.class, "isNotEmpty", Collection.class);
-        Method ifNotEmptyGet = ReflectionUtils.findMethod(SpELHelpers.class, "ifNotEmptyGet", List.class, int.class);
-        Method ifEmptyGetDefault = ReflectionUtils.findMethod(SpELHelpers.class, "ifEmptyGetDefault", List.class,
-            Object.class, int.class);
+        Method[] methods = SpELHelpers.class.getMethods();
+        for (Method method : methods) {
+            if (Modifier.isStatic(method.getModifiers())
+                && Modifier.isPublic(method.getModifiers())
+                && !"registerFunction".equals(method.getName())) {
 
-        registerFunction(isNotEmpty);
-        registerFunction(ifNotEmptyGet);
-        registerFunction(ifEmptyGetDefault);
+                registerFunction(method);
+            }
+        }
     }
 
+    /**
+     * 开放给外界可导入自定义工具函数, 以减少在config.json/SpelConfig中书写的spel复杂度
+     *
+     * @param staticMethod: 注册到spel环境中的函数(必须为public、static修饰)
+     */
     public static void registerFunction(Method staticMethod) {
-        Preconditions.checkArgument(Modifier.isStatic(staticMethod.getModifiers()),
-            "method [%s] is not static, SpEL is not support.", staticMethod);
+        if (!Modifier.isStatic(staticMethod.getModifiers())
+            || !Modifier.isPublic(staticMethod.getModifiers())) {
+
+            throw new IllegalArgumentException(
+                String.format("method [%s] is not static, SpEL is not support.", staticMethod)
+            );
+        }
 
         CUSTOM_METHODS.add(staticMethod);
     }
 
-    static List<Object> calcSpelValues(LogEvent event, List<String> spels, String placeHolder) {
+    /**
+     * 将args、result、placeholder导入环境, 计算spel表达式
+     *
+     * @param event
+     * @param spels
+     * @param placeHolder
+     * @return
+     */
+    static List<Object> evalSpelValues(LogEvent event, List<String> spels, String placeHolder) {
         List<Object> values;
         if (spels != null && !spels.isEmpty()) {
             // 将'args'、'result'、'placeholder'、'ph'导入spel执行环境
@@ -57,11 +74,11 @@ public class SpELHelpers {
             context.setVariable(KEY_PLACEHOLDER, placeHolder);
             context.setVariable(KEY_PH, placeHolder);
             // 将自定义函数导入spel执行环境
-            registerFunctions(context);
+            prepareFunctions(context);
             values = new ArrayList<>(spels.size());
             for (String spel : spels) {
-                Object judgeResult = SPEL_PARSER.parseExpression(spel).getValue(context);
-                values.add(judgeResult);
+                Object evalResult = SPEL_PARSER.parseExpression(spel).getValue(context);
+                values.add(evalResult);
             }
         } else {
             values = Collections.emptyList();
@@ -69,11 +86,18 @@ public class SpELHelpers {
         return values;
     }
 
-    static List<Object> calcSpelValues(Object obj, List<String> spels) {
+    /**
+     * 不将args、result、placeholder导入环境, 直接针对object计算spel表达式
+     *
+     * @param obj
+     * @param spels
+     * @return
+     */
+    static List<Object> evalSpelValues(Object obj, List<String> spels) {
         List<Object> values = new ArrayList<>(spels.size());
-        // 将自定义函数导入spel执行环境
         StandardEvaluationContext context = new StandardEvaluationContext();
-        registerFunctions(context);
+        // 将自定义函数导入spel执行环境
+        prepareFunctions(context);
         for (String spel : spels) {
             Object result = SPEL_PARSER.parseExpression(spel).getValue(context, obj);
             values.add(result);
@@ -82,19 +106,15 @@ public class SpELHelpers {
         return values;
     }
 
-    static void registerFunctions(StandardEvaluationContext context) {
+    private static void prepareFunctions(StandardEvaluationContext context) {
         for (Method method : CUSTOM_METHODS) {
             context.registerFunction(method.getName(), method);
         }
     }
 
-    /**
-     * 注册到SpEL环境中的函数, 尽量减少其他的依赖
-     *
-     * @param collection
-     * @param <T>
-     * @return
-     */
+    /** ****************************************** **/
+    /**  默认注册到SpEL环境中的工具函数(尽量减少额外依赖)  **/
+    /************************************************/
     public static <T> Collection<T> isNotEmpty(Collection<T> collection) {
         if (collection != null && !collection.isEmpty()) {
             return collection;

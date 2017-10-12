@@ -72,6 +72,11 @@ public abstract class AbstractTraceConfig implements Serializable {
      */
     private List<TLogManager> tLogManagers;
 
+    /**
+     * determine use abstract method for detach config/record or not.
+     */
+    private volatile boolean useAbstractMethod = false;
+
     public void setBizLoggerName(String bizLoggerName) {
         this.defaultBizLogger = LoggerFactory.getLogger(bizLoggerName);
     }

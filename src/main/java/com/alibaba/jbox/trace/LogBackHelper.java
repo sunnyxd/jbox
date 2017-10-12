@@ -5,7 +5,7 @@ import java.util.List;
 
 import com.alibaba.jbox.script.ScriptExecutor;
 import com.alibaba.jbox.trace.AbstractTLogConfig.TLogFilter;
-import com.alibaba.jbox.trace.TLogManager.TLogEventParser;
+import com.alibaba.jbox.trace.TLogManager.LogEventParser;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
@@ -94,7 +94,7 @@ class LogBackHelper {
             public FilterReply decide(ILoggingEvent event) {
                 StackTraceElement[] callerData = event.getCallerData();
                 if (callerData != null && callerData.length >= 1) {
-                    if (TLogEventParser.class.getName().equals(callerData[0].getClassName())) {
+                    if (LogEventParser.class.getName().equals(callerData[0].getClassName())) {
                         return FilterReply.NEUTRAL;
                     } else {
                         return FilterReply.DENY;
