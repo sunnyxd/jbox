@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.io.CharStreams;
 import lombok.Data;
-import lombok.ToString;
 import org.springframework.core.io.Resource;
 
 import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_MAX_HISTORY;
@@ -242,7 +241,6 @@ public abstract class AbstractTLogConfig implements Serializable {
         }
     }
 
-    @ToString
     public static class SpELConfig {
 
         private String paramEL;
@@ -297,6 +295,14 @@ public abstract class AbstractTLogConfig implements Serializable {
 
         public void setInListParamEL(List<String> inListParamEL) {
             this.inListParamEL = inListParamEL;
+        }
+
+        @Override
+        public String toString() {
+            return "SpELConfig{" +
+                "paramEL='" + paramEL + '\'' +
+                ", inListParamEL=" + inListParamEL +
+                '}';
         }
     }
 }

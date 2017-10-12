@@ -64,7 +64,7 @@ public class SpELHelpers {
      * @param placeHolder
      * @return
      */
-    static List<Object> evalSpelValues(LogEvent event, List<String> spels, String placeHolder) {
+    static List<Object> evalSpelWithEvent(LogEvent event, List<String> spels, String placeHolder) {
         List<Object> values;
         if (spels != null && !spels.isEmpty()) {
             // 将'args'、'result'、'placeholder'、'ph'导入spel执行环境
@@ -75,6 +75,7 @@ public class SpELHelpers {
             context.setVariable(KEY_PH, placeHolder);
             // 将自定义函数导入spel执行环境
             prepareFunctions(context);
+
             values = new ArrayList<>(spels.size());
             for (String spel : spels) {
                 Object evalResult = SPEL_PARSER.parseExpression(spel).getValue(context);
@@ -87,20 +88,29 @@ public class SpELHelpers {
     }
 
     /**
-     * 不将args、result、placeholder导入环境, 直接针对object计算spel表达式
+     * 不将args、result导入环境, 直接针对object计算spel表达式
      *
      * @param obj
      * @param spels
      * @return
      */
-    static List<Object> evalSpelValues(Object obj, List<String> spels) {
-        List<Object> values = new ArrayList<>(spels.size());
-        StandardEvaluationContext context = new StandardEvaluationContext();
-        // 将自定义函数导入spel执行环境
-        prepareFunctions(context);
-        for (String spel : spels) {
-            Object result = SPEL_PARSER.parseExpression(spel).getValue(context, obj);
-            values.add(result);
+    static List<Object> evalSpelWithObject(Object obj, List<String> spels, String placeHolder) {
+        List<Object> values;
+        if (spels != null && !spels.isEmpty()) {
+            StandardEvaluationContext context = new StandardEvaluationContext();
+            // 仅将'placeholder'、'ph'导入spel执行环境
+            context.setVariable(KEY_PLACEHOLDER, placeHolder);
+            context.setVariable(KEY_PH, placeHolder);
+            // 将自定义函数导入spel执行环境
+            prepareFunctions(context);
+
+            values = new ArrayList<>(spels.size());
+            for (String spel : spels) {
+                Object result = SPEL_PARSER.parseExpression(spel).getValue(context, obj);
+                values.add(result);
+            }
+        } else {
+            values = Collections.emptyList();
         }
 
         return values;

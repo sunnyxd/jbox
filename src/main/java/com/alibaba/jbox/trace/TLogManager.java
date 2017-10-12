@@ -7,10 +7,12 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionHandler;
 
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.executor.AsyncRunnable;
 import com.alibaba.jbox.executor.ExecutorManager;
+import com.alibaba.jbox.executor.policy.DiscardPolicy;
 import com.alibaba.jbox.utils.DateUtils;
 
 import com.google.common.base.Function;
@@ -48,9 +50,11 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
         if (executor == null) {
             ExecutorManager.setSyncInvoke(TLOG_EXECUTOR_GROUP, isSync());
 
+            RejectedExecutionHandler rejected = new DiscardPolicy(TLOG_EXECUTOR_GROUP);
+
             executor = ExecutorManager.newFixedMinMaxThreadPool(
                 TLOG_EXECUTOR_GROUP, getMinPoolSize(), getMaxPoolSize(),
-                getRunnableQSize());
+                getRunnableQSize(), rejected);
         }
 
         // init tLogger
@@ -133,7 +137,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             List<String> paramELs = notMultiSpELConfigs.stream().map(SpELConfig::getParamEL).collect(toList());
 
             // 将根据spel计算的结果与原metadata合并
-            List<Object> evalResults = SpELHelpers.evalSpelValues(logEvent, paramELs);
+            List<Object> evalResults = SpELHelpers.evalSpelWithEvent(logEvent, paramELs, getPlaceHolder());
             logEntities.addAll(evalResults);
 
             doLogger(logEntities);
@@ -142,11 +146,11 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
         private void evalMultiConfig(LogEvent logEvent, List<Object> logEntities, List<SpELConfig> notMultiSpELConfigs,
                                      int multiIdx, SpELConfig multiConfig) {
             // 0) 首先拿非multi的Config计算: 非multi的SpELConfig内只有paramEL内有值/有效
-            List<String> paramELs = notMultiSpELConfigs.stream().map(SpELConfig::getParamEL).collect(toList());
-            List<Object> notMultiEvalResults = SpELHelpers.evalSpelValues(logEvent, paramELs);
+            List<String> notMultiParamELs = notMultiSpELConfigs.stream().map(SpELConfig::getParamEL).collect(toList());
+            List<Object> notMultiEvalResults = SpELHelpers.evalSpelWithEvent(logEvent, notMultiParamELs, getPlaceHolder());
 
             // 1) 根据multiPramEL提取出ListArg
-            List<Object> multiArgs = SpELHelpers.evalSpelValues(event,
+            List<Object> multiArgs = SpELHelpers.evalSpelWithEvent(event,
                 Collections.singletonList(multiConfig.getParamEL()), getPlaceHolder());
             Preconditions.checkState(multiArgs.size() == 1);
 
@@ -160,7 +164,8 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
                 if (multiConfig.getInListParamEL().isEmpty()) {                 // 没有inner field, 如'List<String>'
                     multiEvalResults = Collections.singletonList(listArgEntry);
                 } else {                                                        // 有  inner filed, 如'List<User>'
-                    multiEvalResults = SpELHelpers.evalSpelValues(listArgEntry, multiConfig.getInListParamEL());
+                    multiEvalResults = SpELHelpers.evalSpelWithObject(listArgEntry, multiConfig.getInListParamEL(),
+                        getPlaceHolder());
                 }
 
                 // 2.2)
