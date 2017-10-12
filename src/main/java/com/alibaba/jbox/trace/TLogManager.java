@@ -27,7 +27,7 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
- * @version 1.0
+ * @version 1.1
  * @since 2017/9/22 15:50:00.
  */
 public class TLogManager extends AbstractTLogConfig implements InitializingBean {
