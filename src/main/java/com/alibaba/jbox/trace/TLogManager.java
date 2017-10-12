@@ -63,7 +63,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
         executor.submit(new LogEventParser(event));
     }
 
-    private final class LogEventParser implements AsyncRunnable {
+    protected final class LogEventParser implements AsyncRunnable {
 
         private LogEvent event;
 
