@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,6 +30,7 @@ import com.alibaba.jbox.stream.StreamForker;
 import com.alibaba.jbox.utils.JboxUtils;
 import com.alibaba.jbox.utils.ProxyUtil;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
@@ -49,6 +51,9 @@ import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SING
 public class ExecutorMonitor extends AbstractApplicationContextAware
     implements ScheduleTask, ExecutorLoggerInner, BeanDefinitionRegistryPostProcessor {
 
+    private static final Class<?> RUNNABLE_ADAPTER_CLASS = Executors.callable(() -> {
+    }, null).getClass();
+
     private static Map<String, AtomicLong> beforeInvoked = new HashMap<>();
 
     private static final String ASYNC_KEY = "async";
@@ -60,13 +65,6 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
     private long period = _1M_INTERVAL;
 
     private Integer maxGroupSize = null;
-
-    private int getMaxGroupSize(List<Entry<String, ExecutorService>> groupEntries) {
-        if (maxGroupSize == null) {
-            maxGroupSize = groupEntries.get(0).getKey().length() + "'' ".length();
-        }
-        return maxGroupSize;
-    }
 
     @Override
     public void invoke() throws Exception {
@@ -127,13 +125,20 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             ));
 
             // append task detail:
-            StringBuilder[] taskDetailBuilder = getTaskDetailBuilder(queue);
+            StringBuilder[] taskDetailBuilder = getTaskDetail(queue);
             for (StringBuilder sb : taskDetailBuilder) {
                 logBuilder.append(sb);
             }
         }
 
         monitor.info(logBuilder.toString());
+    }
+
+    private int getMaxGroupSize(List<Entry<String, ExecutorService>> groupEntries) {
+        if (maxGroupSize == null) {
+            maxGroupSize = groupEntries.get(0).getKey().length() + "'' ".length();
+        }
+        return maxGroupSize;
     }
 
     private long calcTps(String group, long invoked) {
@@ -160,7 +165,7 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
         return new Object[] {success, failure, rt, success + failure};
     }
 
-    private StringBuilder[] getTaskDetailBuilder(BlockingQueue<Runnable> queue) {
+    private StringBuilder[] getTaskDetail(BlockingQueue<Runnable> queue) {
         StreamForker<Runnable> forker = new StreamForker<>(queue.stream())
             .fork(ASYNC_KEY, stream -> stream
                 .filter(runnable -> runnable instanceof AsyncRunnable)
@@ -218,14 +223,23 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
         @Override
         public BiConsumer<StringBuilder, Object> accumulator() {
             return (stringBuilder, object) -> {
-                Method taskInfoMethod = ReflectionUtils.findMethod(object.getClass(), "taskInfo");
-                ReflectionUtils.makeAccessible(taskInfoMethod);
-                stringBuilder.append(" -> ")
-                    .append("task: ")
-                    .append(ReflectionUtils.invokeMethod(taskInfoMethod, object))
-                    .append(", obj: ")
-                    .append(Objects.hashCode(object))
-                    .append("\n");
+                stringBuilder.append(" -> ");
+                if (object != null) {
+                    if (object instanceof AsyncRunnable || object instanceof AsyncCallable) {
+                        Method taskInfoMethod = ReflectionUtils.findMethod(object.getClass(), "taskInfo");
+                        ReflectionUtils.makeAccessible(taskInfoMethod);
+                        stringBuilder
+                            .append("task: ")
+                            .append(ReflectionUtils.invokeMethod(taskInfoMethod, object))
+                            .append(", obj: ")
+                            .append(Objects.hashCode(object));
+                    } else {
+                        stringBuilder.append("task: ").append(ToStringBuilder.reflectionToString(object));
+                    }
+                } else {
+                    stringBuilder.append("null");
+                }
+                stringBuilder.append("\n");
             };
         }
 
@@ -247,11 +261,16 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
     private Object getFutureTaskInnerAsyncObject(Object futureTask) {
         Object callable = JboxUtils.getFieldValue(futureTask, "callable");
-        if (callable instanceof AsyncCallable) {
-            return callable;
-        } else {
-            return JboxUtils.getFieldValue(callable, "task");
+        if (callable != null) {
+            if (callable instanceof AsyncCallable) {
+                return callable;
+            } else if (callable instanceof AsyncRunnable) {
+                return callable;
+            } else if (RUNNABLE_ADAPTER_CLASS.isAssignableFrom(callable.getClass())) {
+                return JboxUtils.getFieldValue(callable, "task");
+            }
         }
+        return null;
     }
 
     @Override

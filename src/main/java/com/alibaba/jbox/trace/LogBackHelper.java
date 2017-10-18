@@ -14,6 +14,7 @@ import ch.qos.logback.core.filter.Filter;
 import ch.qos.logback.core.rolling.RollingFileAppender;
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy;
 import ch.qos.logback.core.spi.FilterReply;
+import ch.qos.logback.core.util.FileSize;
 import com.ali.com.google.common.base.Strings;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
@@ -28,7 +29,7 @@ import static com.alibaba.jbox.trace.TraceConstants.tracer;
  */
 class LogBackHelper {
 
-    static Logger initTLogger(String loggerName, String filePath, String charset, int maxHistory,
+    static Logger initTLogger(String loggerName, String filePath, String charset, int maxHistory, long totalSizeCapKb,
                               List<TLogFilter> filters) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(loggerName), "log name can't be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(filePath), "log file can't be empty!");
@@ -51,6 +52,9 @@ class LogBackHelper {
                 policy.setParent(appender);
                 policy.setFileNamePattern(filePath + ".%d{yyyy-MM-dd}");
                 policy.setMaxHistory(maxHistory);
+                if (totalSizeCapKb != 0) {
+                    policy.setTotalSizeCap(new FileSize(totalSizeCapKb * FileSize.KB_COEFFICIENT));
+                }
                 policy.setContext(tLogger.getLoggerContext());
                 policy.start();
 
@@ -75,7 +79,8 @@ class LogBackHelper {
                 tLogger.addAppender(appender);
                 ScriptExecutor.register(tLogger.getName(), appender);
             } else {
-                tracer.warn("app [{}] not used Logback impl for Log, please set '{}' logger in your logger context manual.",
+                tracer.warn(
+                    "app [{}] not used Logback impl for Log, please set '{}' logger in your logger context manual.",
                     System.getProperty("project.name", "unknown"),
                     loggerName);
             }

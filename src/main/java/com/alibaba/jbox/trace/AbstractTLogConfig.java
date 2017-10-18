@@ -80,6 +80,8 @@ public abstract class AbstractTLogConfig implements Serializable {
 
     private String filePath;
 
+    private long totalSizeCapKb = 0;
+
     public void setSpelResource(Resource spelResource) throws IOException {
         String json = readConfig(spelResource);
 

@@ -59,7 +59,9 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
 
         // init tLogger
         if (tLogger == null) {
-            tLogger = initTLogger(getUniqueLoggerName(), getFilePath(), getCharset(), getMaxHistory(), getFilters());
+            tLogger = initTLogger(getUniqueLoggerName(), getFilePath(), getCharset(), getMaxHistory(),
+                getTotalSizeCapKb(),
+                getFilters());
         }
     }
 

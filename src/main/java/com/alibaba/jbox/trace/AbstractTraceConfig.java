@@ -3,6 +3,7 @@ package com.alibaba.jbox.trace;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -23,7 +24,7 @@ public abstract class AbstractTraceConfig implements Serializable {
 
     /**
      * use for replace @Trace when not use Trace annotation.
-     * methodKey:${ClassImplName:MethodName} -> TraceConfig
+     * configKey:${className:methodName} -> TraceConfig
      */
     private ConcurrentMap<String, TraceConfig> traceConfigs = new ConcurrentHashMap<>();
 
@@ -93,5 +94,15 @@ public abstract class AbstractTraceConfig implements Serializable {
             return Collections.emptyList();
         }
         return tLogManagers;
+    }
+
+    public void setTraceConfigs(Map<String, TraceConfig> traceConfigs) {
+        if (traceConfigs != null && !traceConfigs.isEmpty()) {
+            this.traceConfigs.putAll(traceConfigs);
+        }
+    }
+
+    public void addTraceConfig(String configKey, TraceConfig traceConfig) {
+        this.traceConfigs.put(configKey, traceConfig);
     }
 }
