@@ -97,12 +97,12 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             logEntities.add(event.getClientIp());                                         // nullable
 
             // get config from specified configs map
-            List<ELConfig> ELConfigs = getMethodELMap().getOrDefault(
+            List<ELConfig> eLConfigs = getMethodELMap().getOrDefault(
                 event.getConfigKey(), Collections.emptyList()
             );
 
             // check is multi config or not
-            Object[] multi = getMultiConfig(ELConfigs);
+            Object[] multi = getMultiConfig(eLConfigs);
             int multiIdx = (int)multi[0];
             ELConfig multiConfig = (ELConfig)multi[1];
             List<ELConfig> notMultiELConfigs = (List<ELConfig>)multi[2];
@@ -114,13 +114,13 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             }
         }
 
-        private Object[] getMultiConfig(List<ELConfig> ELConfigs) {
-            List<ELConfig> notMultiELConfigs = new ArrayList<>(ELConfigs.size());
+        private Object[] getMultiConfig(List<ELConfig> eLConfigs) {
+            List<ELConfig> notMultiELConfigs = new ArrayList<>(eLConfigs.size());
 
             int multiIdx = -1;
             ELConfig multiConfig = null;
-            for (int i = 0; i < ELConfigs.size(); ++i) {
-                ELConfig config = ELConfigs.get(i);
+            for (int i = 0; i < eLConfigs.size(); ++i) {
+                ELConfig config = eLConfigs.get(i);
 
                 if (config.isMulti()) {
                     multiIdx = i;

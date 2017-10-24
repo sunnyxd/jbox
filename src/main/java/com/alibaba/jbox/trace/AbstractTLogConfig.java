@@ -21,7 +21,6 @@ import com.alibaba.fastjson.JSONObject;
 import com.ali.com.google.common.base.Strings;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CharStreams;
-import lombok.Data;
 import org.springframework.core.io.Resource;
 
 import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_MAX_HISTORY;
@@ -42,7 +41,6 @@ import static com.alibaba.jbox.trace.TraceConstants.XML_FILE_SUFFIX;
  * @version 1.2
  * @since 2017/9/26 14:09:00.
  */
-@Data
 public abstract class AbstractTLogConfig implements Serializable {
 
     private static final long serialVersionUID = 5924881023295492855L;
@@ -201,5 +199,97 @@ public abstract class AbstractTLogConfig implements Serializable {
                 ", inListParamEL=" + inListParamEL +
                 '}';
         }
+    }
+
+    public ConcurrentMap<String, List<ELConfig>> getMethodELMap() {
+        return methodELMap;
+    }
+
+    public void setMethodELMap(ConcurrentMap<String, List<ELConfig>> methodELMap) {
+        this.methodELMap = methodELMap;
+    }
+
+    public int getMinPoolSize() {
+        return minPoolSize;
+    }
+
+    public void setMinPoolSize(int minPoolSize) {
+        this.minPoolSize = minPoolSize;
+    }
+
+    public int getMaxPoolSize() {
+        return maxPoolSize;
+    }
+
+    public void setMaxPoolSize(int maxPoolSize) {
+        this.maxPoolSize = maxPoolSize;
+    }
+
+    public int getRunnableQSize() {
+        return runnableQSize;
+    }
+
+    public void setRunnableQSize(int runnableQSize) {
+        this.runnableQSize = runnableQSize;
+    }
+
+    public int getMaxHistory() {
+        return maxHistory;
+    }
+
+    public void setMaxHistory(int maxHistory) {
+        this.maxHistory = maxHistory;
+    }
+
+    public String getPlaceHolder() {
+        return placeHolder;
+    }
+
+    public void setPlaceHolder(String placeHolder) {
+        this.placeHolder = placeHolder;
+    }
+
+    public void setUniqueLoggerName(String uniqueLoggerName) {
+        this.uniqueLoggerName = uniqueLoggerName;
+    }
+
+    public List<TLogFilter> getFilters() {
+        return filters;
+    }
+
+    public void setFilters(List<TLogFilter> filters) {
+        this.filters = filters;
+    }
+
+    public String getCharset() {
+        return charset;
+    }
+
+    public void setCharset(String charset) {
+        this.charset = charset;
+    }
+
+    public boolean isSync() {
+        return sync;
+    }
+
+    public void setSync(boolean sync) {
+        this.sync = sync;
+    }
+
+    public String getFilePath() {
+        return filePath;
+    }
+
+    public void setFilePath(String filePath) {
+        this.filePath = filePath;
+    }
+
+    public long getTotalSizeCapKb() {
+        return totalSizeCapKb;
+    }
+
+    public void setTotalSizeCapKb(long totalSizeCapKb) {
+        this.totalSizeCapKb = totalSizeCapKb;
     }
 }

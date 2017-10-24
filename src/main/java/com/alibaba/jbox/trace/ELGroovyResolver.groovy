@@ -7,7 +7,7 @@ package com.alibaba.jbox.trace
  */
 class ELGroovyResolver {
 
-    static void resolve(String fileName, InputStream xmlIs, Map<String, List<AbstractTLogConfig.ELConfig>> methodELMap) {
+    static void resolve(String fileName, InputStream is, Map<String, List<AbstractTLogConfig.ELConfig>> methodELMap) {
         throw new UnsupportedOperationException("tlog config unsupported groovy config not yet, place hold on")
     }
 }

@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +16,6 @@ import org.slf4j.LoggerFactory;
  * @version 1.0
  * @since 2017/9/28 13:23:00.
  */
-@Data
 public abstract class AbstractTraceConfig implements Serializable {
 
     private static final long serialVersionUID = 8892376403020670231L;
@@ -104,5 +102,94 @@ public abstract class AbstractTraceConfig implements Serializable {
 
     public void addTraceConfig(String configKey, TraceConfig traceConfig) {
         this.traceConfigs.put(configKey, traceConfig);
+    }
+
+    public ConcurrentMap<String, TraceConfig> getTraceConfigs() {
+        return traceConfigs;
+    }
+
+    public void setTraceConfigs(
+        ConcurrentMap<String, TraceConfig> traceConfigs) {
+        this.traceConfigs = traceConfigs;
+    }
+
+    public Logger getDefaultBizLogger() {
+        return defaultBizLogger;
+    }
+
+    public void setDefaultBizLogger(Logger defaultBizLogger) {
+        this.defaultBizLogger = defaultBizLogger;
+    }
+
+    public boolean isValidator() {
+        return validator;
+    }
+
+    public void setValidator(boolean validator) {
+        this.validator = validator;
+    }
+
+    public boolean isElapsed() {
+        return elapsed;
+    }
+
+    public void setElapsed(boolean elapsed) {
+        this.elapsed = elapsed;
+    }
+
+    public boolean isParam() {
+        return param;
+    }
+
+    public void setParam(boolean param) {
+        this.param = param;
+    }
+
+    public boolean isResult() {
+        return result;
+    }
+
+    public void setResult(boolean result) {
+        this.result = result;
+    }
+
+    public boolean isSentinel() {
+        return sentinel;
+    }
+
+    public void setSentinel(boolean sentinel) {
+        this.sentinel = sentinel;
+    }
+
+    public boolean isTrace() {
+        return trace;
+    }
+
+    public void setTrace(boolean trace) {
+        this.trace = trace;
+    }
+
+    public boolean isErrorRoot() {
+        return errorRoot;
+    }
+
+    public void setErrorRoot(boolean errorRoot) {
+        this.errorRoot = errorRoot;
+    }
+
+    public List<TLogManager> gettLogManagers() {
+        return tLogManagers;
+    }
+
+    public void settLogManagers(List<TLogManager> tLogManagers) {
+        this.tLogManagers = tLogManagers;
+    }
+
+    public boolean isUseAbstractMethod() {
+        return useAbstractMethod;
+    }
+
+    public void setUseAbstractMethod(boolean useAbstractMethod) {
+        this.useAbstractMethod = useAbstractMethod;
     }
 }
