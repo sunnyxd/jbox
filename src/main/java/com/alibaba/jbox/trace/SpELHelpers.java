@@ -147,7 +147,7 @@ public class SpELHelpers {
         return list == null ? null : list.get(index);
     }
 
-    public static <T> T ifEmptyGetDefault(List<T> list, T defaultObj, int index) {
+    public static <T> T ifEmptyGetDefault(List<T> list, int index, T defaultObj) {
         T obj = ifNotEmptyGet(list, index);
         return obj == null ? defaultObj : obj;
     }
