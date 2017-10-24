@@ -3,8 +3,6 @@ package com.alibaba.jbox.utils;
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.alibaba.jbox.annotation.ThreadSafe;
-
 /**
  * 性能监控器: 监控qps & rt
  * ${code ThreadSafe}
@@ -12,7 +10,6 @@ import com.alibaba.jbox.annotation.ThreadSafe;
  * @author jifang
  * @since 16/11/9 下午2:53.
  */
-@ThreadSafe
 public class Performer {
 
     private AtomicLong totalInvokeCount = new AtomicLong(0);
