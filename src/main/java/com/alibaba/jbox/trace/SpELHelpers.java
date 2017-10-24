@@ -40,7 +40,7 @@ public class SpELHelpers {
     }
 
     /**
-     * 开放给外界可导入自定义工具函数, 以减少在config.json/SpelConfig中书写的spel复杂度
+     * 开放给外界可导入自定义工具函数, 以减少在xml/json/groovy/ELConfig中书写的spel复杂度
      *
      * @param staticMethod: 注册到spel环境中的函数(必须为public、static修饰)
      */
@@ -54,6 +54,16 @@ public class SpELHelpers {
         }
 
         CUSTOM_METHODS.add(staticMethod);
+    }
+
+    public static void registerFunctions(Class<?> clazz) {
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (Modifier.isStatic(method.getModifiers())
+                && Modifier.isPublic(method.getModifiers())) {
+
+                registerFunction(method);
+            }
+        }
     }
 
     /**

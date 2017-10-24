@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.alibaba.jbox.trace.TraceConstants.LOGGER_FILE_PATTERN;
 import static com.alibaba.jbox.trace.TraceConstants.tracer;
 
 /**
@@ -50,7 +51,7 @@ class LogBackHelper {
                 // init policy
                 TimeBasedRollingPolicy policy = new TimeBasedRollingPolicy();
                 policy.setParent(appender);
-                policy.setFileNamePattern(filePath + ".%d{yyyy-MM-dd}");
+                policy.setFileNamePattern(filePath + LOGGER_FILE_PATTERN);
                 policy.setMaxHistory(maxHistory);
                 if (totalSizeCapKb != 0) {
                     policy.setTotalSizeCap(new FileSize(totalSizeCapKb * FileSize.KB_COEFFICIENT));

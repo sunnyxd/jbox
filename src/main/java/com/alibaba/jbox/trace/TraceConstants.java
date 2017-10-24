@@ -57,4 +57,12 @@ interface TraceConstants {
     String REF_PREFIX = "#{";
 
     String REF_SUFFIX = "}";
+
+    String JSON_FILE_SUFFIX = ".json";
+
+    String XML_FILE_SUFFIX = ".xml";
+
+    String GROOVY_FILE_SUFFIX = ".groovy";
+
+    String LOGGER_FILE_PATTERN = ".%d{yyyy-MM-dd}.gz";
 }

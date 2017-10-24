@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        targetNamespace="http://www.alibaba.com/jbox/trace"
+        elementFormDefault="qualified">
+    <element name="traces">
+        <complexType>
+            <sequence>
+                <element name="define" minOccurs="0" maxOccurs="unbounded">
+                    <complexType>
+                        <attribute name="name" type="string" use="required"/>
+                        <attribute name="value" type="string" use="required"/>
+                    </complexType>
+                </element>
+
+                <element name="trace" maxOccurs="unbounded">
+                    <complexType>
+                        <attribute name="method" type="string" use="required"/>
+                        <attribute name="ref" type="string" default=""/>
+                        <sequence>
+                            <element name="expression" minOccurs="0" maxOccurs="unbounded">
+                                <complexType>
+                                    <sequence minOccurs="0">
+                                        <attribute name="key" type="string" use="required"/>
+                                        <attribute name="multi" type="boolean" default="false"/>
+                                        <sequence>
+                                            <element name="field">
+                                                <complexType>
+                                                    <attribute name="value" type="string"/>
+                                                </complexType>
+                                            </element>
+                                        </sequence>
+                                    </sequence>
+                                </complexType>
+                            </element>
+                        </sequence>
+                    </complexType>
+                </element>
+            </sequence>
+        </complexType>
+    </element>
+</schema>

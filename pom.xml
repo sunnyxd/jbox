@@ -8,7 +8,7 @@
 
     <groupId>com.alibaba.jbox</groupId>
     <artifactId>jbox</artifactId>
-    <version>1.5.0-SNAPSHOT</version>
+    <version>1.5.1-SNAPSHOT</version>
 
     <properties>
         <guava.version>18.0</guava.version>
@@ -373,6 +373,35 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.gmaven</groupId>
+                <artifactId>gmaven-plugin</artifactId>
+                <version>1.5</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generateStubs</goal>
+                            <goal>compile</goal>
+                            <goal>generateTestStubs</goal>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <providerSelection>2.0</providerSelection>
+                            <sources>
+                                <fileset>
+                                    <directory>${pom.basedir}/src/main/java/com/alibaba/jbox</directory>
+                                    <includes>
+                                        <include>**/*.groovy</include>
+                                    </includes>
+
+                                </fileset>
+                            </sources>
+                            <sourceEncoding>UTF-8</sourceEncoding>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 

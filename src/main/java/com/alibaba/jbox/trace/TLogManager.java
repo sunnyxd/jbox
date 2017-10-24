@@ -97,46 +97,46 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             logEntities.add(event.getClientIp());                                         // nullable
 
             // get config from specified configs map
-            List<SpELConfig> spELConfigs = getMethodSpelMap().getOrDefault(
+            List<ELConfig> ELConfigs = getMethodELMap().getOrDefault(
                 event.getConfigKey(), Collections.emptyList()
             );
 
             // check is multi config or not
-            Object[] multi = getMultiConfig(spELConfigs);
+            Object[] multi = getMultiConfig(ELConfigs);
             int multiIdx = (int)multi[0];
-            SpELConfig multiConfig = (SpELConfig)multi[1];
-            List<SpELConfig> notMultiSpELConfigs = (List<SpELConfig>)multi[2];
+            ELConfig multiConfig = (ELConfig)multi[1];
+            List<ELConfig> notMultiELConfigs = (List<ELConfig>)multi[2];
 
             if (multiIdx == -1) {   // do as single config
-                evalSingleConfig(event, logEntities, notMultiSpELConfigs);
+                evalSingleConfig(event, logEntities, notMultiELConfigs);
             } else {                // do as multi config
-                evalMultiConfig(event, logEntities, notMultiSpELConfigs, multiIdx, multiConfig);
+                evalMultiConfig(event, logEntities, notMultiELConfigs, multiIdx, multiConfig);
             }
         }
 
-        private Object[] getMultiConfig(List<SpELConfig> spELConfigs) {
-            List<SpELConfig> notMultiSpELConfigs = new ArrayList<>(spELConfigs.size());
+        private Object[] getMultiConfig(List<ELConfig> ELConfigs) {
+            List<ELConfig> notMultiELConfigs = new ArrayList<>(ELConfigs.size());
 
             int multiIdx = -1;
-            SpELConfig multiConfig = null;
-            for (int i = 0; i < spELConfigs.size(); ++i) {
-                SpELConfig config = spELConfigs.get(i);
+            ELConfig multiConfig = null;
+            for (int i = 0; i < ELConfigs.size(); ++i) {
+                ELConfig config = ELConfigs.get(i);
 
                 if (config.isMulti()) {
                     multiIdx = i;
                     multiConfig = config;
                 } else {
-                    notMultiSpELConfigs.add(config);
+                    notMultiELConfigs.add(config);
                 }
             }
 
-            return new Object[] {multiIdx, multiConfig, notMultiSpELConfigs};
+            return new Object[] {multiIdx, multiConfig, notMultiELConfigs};
         }
 
         private void evalSingleConfig(LogEvent logEvent, List<Object> logEntities,
-                                      List<SpELConfig> notMultiSpELConfigs) {
+                                      List<ELConfig> notMultiELConfigs) {
             // 非multi的SpELConfig内只有paramEL内有值/有效
-            List<String> paramELs = notMultiSpELConfigs.stream().map(SpELConfig::getParamEL).collect(toList());
+            List<String> paramELs = notMultiELConfigs.stream().map(ELConfig::getParamEL).collect(toList());
 
             // 将根据spel计算的结果与原metadata合并
             List<Object> evalResults = SpELHelpers.evalSpelWithEvent(logEvent, paramELs, getPlaceHolder());
@@ -145,10 +145,10 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             doLogger(logEntities);
         }
 
-        private void evalMultiConfig(LogEvent logEvent, List<Object> logEntities, List<SpELConfig> notMultiSpELConfigs,
-                                     int multiIdx, SpELConfig multiConfig) {
+        private void evalMultiConfig(LogEvent logEvent, List<Object> logEntities, List<ELConfig> notMultiELConfigs,
+                                     int multiIdx, ELConfig multiConfig) {
             // 0) 首先拿非multi的Config计算: 非multi的SpELConfig内只有paramEL内有值/有效
-            List<String> notMultiParamELs = notMultiSpELConfigs.stream().map(SpELConfig::getParamEL).collect(toList());
+            List<String> notMultiParamELs = notMultiELConfigs.stream().map(ELConfig::getParamEL).collect(toList());
             List<Object> notMultiEvalResults = SpELHelpers.evalSpelWithEvent(logEvent, notMultiParamELs,
                 getPlaceHolder());
 
@@ -173,7 +173,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
 
                 // 2.2)
                 appendEvalResultsAndLog(notMultiEvalResults, multiEvalResults, logEntities, multiIdx,
-                    notMultiSpELConfigs.size() + 1);
+                    notMultiELConfigs.size() + 1);
             }
         }
 
