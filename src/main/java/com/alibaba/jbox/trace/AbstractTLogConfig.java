@@ -18,8 +18,8 @@ import java.util.stream.Collectors;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
-import com.ali.com.google.common.base.Strings;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.io.CharStreams;
 import org.springframework.core.io.Resource;
 
