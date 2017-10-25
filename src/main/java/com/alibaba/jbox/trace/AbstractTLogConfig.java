@@ -118,17 +118,6 @@ public abstract class AbstractTLogConfig implements Serializable {
         }
     }
 
-    public interface TLogFilter {
-
-        enum FilterReply {
-            DENY,
-            NEUTRAL,
-            ACCEPT;
-        }
-
-        FilterReply decide(String formattedMessage) throws Exception;
-    }
-
     private String readConfig(Resource resource) throws IOException {
         try (InputStream is = resource.getInputStream();
              Reader reader = new InputStreamReader(is)) {

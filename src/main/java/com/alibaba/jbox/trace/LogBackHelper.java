@@ -4,7 +4,6 @@ import java.nio.charset.Charset;
 import java.util.List;
 
 import com.alibaba.jbox.script.ScriptExecutor;
-import com.alibaba.jbox.trace.AbstractTLogConfig.TLogFilter;
 import com.alibaba.jbox.trace.TLogManager.LogEventParser;
 
 import ch.qos.logback.classic.Level;
@@ -20,6 +19,7 @@ import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static ch.qos.logback.core.spi.FilterReply.DENY;
 import static com.alibaba.jbox.trace.TraceConstants.LOGGER_FILE_PATTERN;
 import static com.alibaba.jbox.trace.TraceConstants.tracer;
 
@@ -103,7 +103,7 @@ class LogBackHelper {
                     if (LogEventParser.class.getName().equals(callerData[0].getClassName())) {
                         return FilterReply.NEUTRAL;
                     } else {
-                        return FilterReply.DENY;
+                        return DENY;
                     }
                 }
 
@@ -118,17 +118,14 @@ class LogBackHelper {
         }
 
         for (TLogFilter filter : filters) {
-            // 将com.alibaba.jbox.trace.TLogManager.TLogFilter转换为ch.qos.logback.core.filter.Filter, 注册到Appender上
             appender.addFilter(new Filter<ILoggingEvent>() {
                 @Override
                 public FilterReply decide(ILoggingEvent event) {
-                    try {
-                        TLogFilter.FilterReply reply = filter.decide(event.getFormattedMessage());
+                    TLogFilter.FilterReply reply = filter.decide(event.getFormattedMessage());
+                    if (reply == null) {
+                        return DENY;
+                    } else {
                         return FilterReply.valueOf(reply.name());
-                    } catch (Exception e) {
-                        tracer.error("filter '{}' invoke error, formatted message: {}",
-                            filter, event.getFormattedMessage(), e);
-                        return FilterReply.DENY;
                     }
                 }
             });
