@@ -25,7 +25,7 @@
                                         <sequence>
                                             <element name="field">
                                                 <complexType>
-                                                    <attribute name="value" type="string"/>
+                                                    <attribute name="value" type="string" use="required"/>
                                                 </complexType>
                                             </element>
                                         </sequence>

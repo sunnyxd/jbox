@@ -4,7 +4,7 @@ import java.nio.charset.Charset;
 import java.util.List;
 
 import com.alibaba.jbox.script.ScriptExecutor;
-import com.alibaba.jbox.trace.TLogManager.LogEventParser;
+import com.alibaba.jbox.trace.TLogFilter.TLogContext;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
@@ -69,7 +69,9 @@ class LogBackHelper {
                 // start appender
                 appender.setRollingPolicy(policy);
                 appender.setEncoder(encoder);
-                registerBuildInFilters(appender);
+                /*  @since 1.2
+                    registerBuildInFilters(appender);
+                 */
                 registerCustomFilters(appender, filters);
                 appender.start();
 
@@ -94,6 +96,29 @@ class LogBackHelper {
         return logger;
     }
 
+    private static void registerCustomFilters(RollingFileAppender<ILoggingEvent> appender, List<TLogFilter> filters) {
+        if (filters == null || filters.isEmpty()) {
+            return;
+        }
+
+        for (TLogFilter filter : filters) {
+            appender.addFilter(new Filter<ILoggingEvent>() {
+                @Override
+                public FilterReply decide(ILoggingEvent event) {
+                    TLogContext context = new TLogContext(event, event.getFormattedMessage());
+                    TLogFilter.FilterReply reply = filter.decide(context);
+                    if (reply == null) {
+                        return DENY;
+                    } else {
+                        return FilterReply.valueOf(reply.name());
+                    }
+                }
+            });
+        }
+    }
+
+    /*
+    // @since 1.2: 双11性能优化, 不再校验log内容来源
     private static void registerBuildInFilters(RollingFileAppender<ILoggingEvent> appender) {
         appender.addFilter(new Filter<ILoggingEvent>() {
             @Override
@@ -111,24 +136,5 @@ class LogBackHelper {
             }
         });
     }
-
-    private static void registerCustomFilters(RollingFileAppender<ILoggingEvent> appender, List<TLogFilter> filters) {
-        if (filters == null || filters.isEmpty()) {
-            return;
-        }
-
-        for (TLogFilter filter : filters) {
-            appender.addFilter(new Filter<ILoggingEvent>() {
-                @Override
-                public FilterReply decide(ILoggingEvent event) {
-                    TLogFilter.FilterReply reply = filter.decide(event.getFormattedMessage());
-                    if (reply == null) {
-                        return DENY;
-                    } else {
-                        return FilterReply.valueOf(reply.name());
-                    }
-                }
-            });
-        }
-    }
+    */
 }

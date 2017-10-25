@@ -1,5 +1,6 @@
 package com.alibaba.jbox.executor;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -45,6 +46,6 @@ class Context {
     }
 
     public Map<String, Object> getExtContext() {
-        return extContext;
+        return extContext == null ? Collections.emptyMap() : extContext;
     }
 }

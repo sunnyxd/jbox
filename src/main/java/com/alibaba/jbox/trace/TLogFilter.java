@@ -1,18 +1,75 @@
 package com.alibaba.jbox.trace;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
+
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
- * @since 2017/10/25 17:03:00.
+ * @since 2017/09/25 17:03:00.
  */
 public interface TLogFilter {
 
     /**
-     * determine the logMsg log or not.
+     * determine the LogEvent do log or not.
      *
-     * @param fmtLogMsg: 已经格式化好的Log信息
+     * @param tLogContext: logging context {@link TLogContext}.
+     * @return FilterReply: {@link FilterReply}.
      */
-    FilterReply decide(String fmtLogMsg);
+    FilterReply decide(TLogContext tLogContext);
+
+    /**
+     * logging context information definition
+     */
+    class TLogContext {
+
+        /**
+         * logback  event.
+         */
+        private ILoggingEvent loggingEvent;
+
+        /**
+         * formatted log message.
+         */
+        private String fmtLogMsg;
+
+        private Map<String, Object> extContext;
+
+        public TLogContext(ILoggingEvent loggingEvent, String fmtLogMsg) {
+            this.loggingEvent = loggingEvent;
+            this.fmtLogMsg = fmtLogMsg;
+        }
+
+        public ILoggingEvent getLoggingEvent() {
+            return loggingEvent;
+        }
+
+        public void setLoggingEvent(ILoggingEvent loggingEvent) {
+            this.loggingEvent = loggingEvent;
+        }
+
+        public String getFmtLogMsg() {
+            return fmtLogMsg;
+        }
+
+        public void setFmtLogMsg(String fmtLogMsg) {
+            this.fmtLogMsg = fmtLogMsg;
+        }
+
+        public void putExtContext(String key, Object value) {
+            if (extContext == null) {
+                extContext = new HashMap<>();
+            }
+            extContext.put(key, value);
+        }
+
+        public Map<String, Object> getExtContext() {
+            return extContext == null ? Collections.emptyMap() : extContext;
+        }
+    }
 
     enum FilterReply {
         /**
