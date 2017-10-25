@@ -67,6 +67,11 @@ public abstract class AbstractTraceConfig implements Serializable {
     private volatile boolean errorRoot = false;
 
     /**
+     * determine use tlog manager or not.
+     */
+    private volatile boolean enableTLogManger = true;
+
+    /**
      * use for push TLog event.
      */
     private List<TLogManager> tLogManagers;
@@ -191,5 +196,13 @@ public abstract class AbstractTraceConfig implements Serializable {
 
     public void setUseAbstractMethod(boolean useAbstractMethod) {
         this.useAbstractMethod = useAbstractMethod;
+    }
+
+    public boolean isEnableTLogManger() {
+        return enableTLogManger;
+    }
+
+    public void setEnableTLogManger(boolean enableTLogManger) {
+        this.enableTLogManger = enableTLogManger;
     }
 }

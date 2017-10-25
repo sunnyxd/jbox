@@ -152,7 +152,7 @@ public class TraceAspect extends AbstractTraceConfig {
     /***  send metadata to LogEventManager   @since 1.7  ***/
     /*** *********************************************** ***/
     private void sendLogEvent(LogEvent event) {
-        if (!getTLogManagers().isEmpty()) {
+        if (isEnableTLogManger() && !getTLogManagers().isEmpty()) {
             event.init();
             for (TLogManager tLogManager : getTLogManagers()) {
                 tLogManager.postLogEvent(event);
