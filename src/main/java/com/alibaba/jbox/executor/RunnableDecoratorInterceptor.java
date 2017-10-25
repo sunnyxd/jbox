@@ -103,7 +103,7 @@ class RunnableDecorator implements AsyncRunnable {
             // success count
             recorder.getSuccess().incrementAndGet();
         } catch (Throwable e) {
-            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
+            monitor.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
             afterThrowing(e, context);
@@ -177,7 +177,7 @@ class CallableDecorator implements AsyncCallable {
             return result;
 
         } catch (Throwable e) {
-            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
+            monitor.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
             afterThrowing(e, context);
@@ -249,7 +249,7 @@ class AsyncRunnableDecorator implements AsyncRunnable {
             // success count
             recorder.getSuccess().incrementAndGet();
         } catch (Throwable e) {
-            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
+            monitor.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
             afterThrowing(e, context);
@@ -328,7 +328,7 @@ class AsyncCallableDecorator implements AsyncCallable {
 
             return result;
         } catch (Throwable e) {
-            logger.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
+            monitor.error("task: '{}' in thread: [{}] execute failed:", taskInfo(), Thread.currentThread().getName(), e);
             // failure count
             recorder.getFailure().incrementAndGet();
             afterThrowing(e, context);
