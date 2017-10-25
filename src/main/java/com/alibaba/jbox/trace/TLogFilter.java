@@ -16,10 +16,10 @@ public interface TLogFilter {
     /**
      * determine the LogEvent do log or not.
      *
-     * @param tLogContext: logging context {@link TLogContext}.
-     * @return FilterReply: {@link FilterReply}.
+     * @param context       : logging context {@link TLogContext}.
+     * @return FilterReply  : {@link FilterReply}.
      */
-    FilterReply decide(TLogContext tLogContext);
+    FilterReply decide(TLogContext context);
 
     /**
      * logging context information definition
