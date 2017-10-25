@@ -127,7 +127,6 @@ public class TraceAspect extends AbstractTraceConfig {
                     logTrace(logContent);
                 }
             }
-            sendLogEvent(logEvent);
 
             return result;
         } catch (Throwable e) {
@@ -138,10 +137,11 @@ public class TraceAspect extends AbstractTraceConfig {
                     e);
             }
             logEvent.setException(e);
-            sendLogEvent(logEvent);
 
             throw e;
         } finally {
+            sendLogEvent(logEvent);
+
             if (!Strings.isNullOrEmpty(traceId)) {
                 MDC.remove(TRACE_ID);
             }
