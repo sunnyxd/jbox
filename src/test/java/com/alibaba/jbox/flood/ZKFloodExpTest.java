@@ -1,6 +1,4 @@
-package com.alibaba.jbox;
-
-import com.alibaba.jbox.flood.AbstractZKFlood;
+package com.alibaba.jbox.flood;
 
 import java.util.Random;
 
@@ -8,14 +6,14 @@ import java.util.Random;
  * @author jifang
  * @since 2016/11/3 下午4:21.
  */
-public class FeedCenterFloodExp extends AbstractZKFlood {
+public class ZKFloodExpTest extends AbstractZKFlood {
 
-    public FeedCenterFloodExp(String connectString) throws Exception {
+    public ZKFloodExpTest(String connectString) throws Exception {
         super(connectString);
     }
 
     public static void main(String[] args) throws Exception {
-        FeedCenterFloodExp floodExp = new FeedCenterFloodExp("127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183");
+        ZKFloodExpTest floodExp = new ZKFloodExpTest("127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183");
         Random random = new Random();
 
         long totalExpCount = 1_000_000_000L;
