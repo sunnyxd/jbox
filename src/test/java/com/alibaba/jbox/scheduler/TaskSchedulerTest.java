@@ -1,8 +1,6 @@
-package com.alibaba.jbox;
+package com.alibaba.jbox.scheduler;
 
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.jbox.scheduler.ScheduleTask;
-import com.alibaba.jbox.scheduler.TaskScheduler;
 
 import org.junit.Test;
 
@@ -29,7 +27,7 @@ public class TaskSchedulerTest {
         });
         scheduler.start();
 
-        Thread.sleep(10000000);
+        Thread.sleep(100000);
         scheduler.shutdown();
     }
 

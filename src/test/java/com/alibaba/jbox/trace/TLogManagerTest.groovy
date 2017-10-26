@@ -1,8 +1,6 @@
-package com.alibaba.jbox
+package com.alibaba.jbox.trace
 
-import com.alibaba.jbox.trace.TLogManager
 import org.springframework.core.io.FileSystemResource
-
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0

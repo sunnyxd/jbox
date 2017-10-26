@@ -1,4 +1,4 @@
-package com.alibaba.jbox;
+package com.alibaba.jbox.utils;
 
 /**
  * @author jifang.zjf

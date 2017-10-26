@@ -1,4 +1,4 @@
-package com.alibaba.jbox;
+package com.alibaba.jbox.executor;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
