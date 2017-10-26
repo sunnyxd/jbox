@@ -5,6 +5,23 @@
        http://www.alibaba.com/jbox/trace.xsd">
 
     <define name="service" value="com.cainiao.webapp.service.impl.HelloWorldServiceImpl"/>
+    <define name=""  value="ss"/>
+    
+    <trace method="">
+        <expression key="">
+            <field value=""/>
+        </expression>
+    </trace>
+    
+
+    <trace method="">
+        <expression key="" multi="true">
+            <field value=""/>
+        </expression>
+    </trace>
+    <trace method="" ref="">
+
+    </trace>
 
     <trace method="${service}:sayHello">
         <expression key="#args[0]" multi="false"/>
