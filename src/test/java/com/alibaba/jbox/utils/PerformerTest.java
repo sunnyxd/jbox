@@ -1,10 +1,6 @@
-package com.alibaba.jbox;
-
-import java.util.concurrent.ArrayBlockingQueue;
+package com.alibaba.jbox.utils;
 
 import com.alibaba.jbox.executor.ExecutorLoggerInner;
-import com.alibaba.jbox.executor.policy.CallerRunsPolicy;
-import com.alibaba.jbox.utils.Performer;
 
 import org.junit.Test;
 
@@ -15,13 +11,7 @@ import org.junit.Test;
 public class PerformerTest implements ExecutorLoggerInner {
 
     @Test
-    public void test() {
-        String s = generatePolicyLoggerContent("nihao", new CallerRunsPolicy("ss"), new ArrayBlockingQueue<Object>(30),
-            "ss", 123);
-        System.out.println(s);
-    }
-
-    public static void main(String[] args) {
+    public void testPerformer() {
 
         for (int i = 0; i < 1000000; ++i) {
         }

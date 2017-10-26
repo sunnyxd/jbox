@@ -88,8 +88,10 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             logEntities.add(event.getClassName());
             logEntities.add(event.getMethodName());
 
-            logEntities.add(ifNotNull(event.getArgs(), JSONObject::toJSONString));        // nullable
-            logEntities.add(ifNotNull(event.getResult(), JSONObject::toJSONString));      // nullable
+            logEntities.add(ifNotNull(event.getArgs(),
+                (args) -> JSONObject.toJSONString(args, getArgFilter())));                // nullable
+            logEntities.add(ifNotNull(event.getResult(),
+                (result) -> JSONObject.toJSONString(result, getResultFilter())));         // nullable
             logEntities.add(ifNotNull(event.getException(), JSONObject::toJSONString));   // nullable
             logEntities.add(event.getServerIp());
             logEntities.add(event.getTraceId());                                          // nullable

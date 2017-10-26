@@ -1,4 +1,4 @@
-package com.alibaba.jbox;
+package com.alibaba.jbox.script;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -6,7 +6,6 @@ import javax.script.ScriptException;
 
 import com.alibaba.jbox.domain.Address;
 import com.alibaba.jbox.domain.People;
-import com.alibaba.jbox.script.ScriptType;
 
 import com.taobao.hsf.app.api.util.HSFApiConsumerBean;
 import com.taobao.hsf.model.metadata.MethodSpecial;

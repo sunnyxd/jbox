@@ -11,12 +11,17 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.JSONSerializer;
+import com.alibaba.fastjson.serializer.PropertyPreFilter;
+import com.alibaba.fastjson.serializer.SerializeFilter;
 
 import com.ali.com.google.common.base.Strings;
 import com.google.common.base.Preconditions;
@@ -75,6 +80,20 @@ public abstract class AbstractTLogConfig implements Serializable {
     private String filePath;
 
     private long totalSizeCapKb = 0;
+
+    /**
+     * 将方法入参序列化时(JSONObject::toJSONString)排除的属性
+     */
+    private final Set<String> excludeArgs = new ConcurrentSkipListSet<>();
+
+    private volatile SerializeFilter argFilter;
+
+    /**
+     * 将方法返回值序列化时(JSONObject::toJSONString)排除的属性
+     */
+    private final Set<String> excludeResults = new ConcurrentSkipListSet<>();
+
+    private volatile SerializeFilter resultFilter;
 
     public void setResource(Resource resource) throws IOException {
         String fileName = resource.getFilename();
@@ -280,5 +299,57 @@ public abstract class AbstractTLogConfig implements Serializable {
 
     public void setTotalSizeCapKb(long totalSizeCapKb) {
         this.totalSizeCapKb = totalSizeCapKb;
+    }
+
+    public Set<String> getExcludeArgs() {
+        return excludeArgs;
+    }
+
+    public void setExcludeArgs(Set<String> excludeArgs) {
+        if (excludeArgs != null && !excludeArgs.isEmpty()) {
+            this.excludeArgs.addAll(excludeArgs);
+        }
+    }
+
+    public Set<String> getExcludeResults() {
+        return excludeResults;
+    }
+
+    public void setExcludeResults(Set<String> excludeResults) {
+        if (excludeResults != null && !excludeResults.isEmpty()) {
+            this.excludeResults.addAll(excludeResults);
+        }
+    }
+
+    protected SerializeFilter getArgFilter() {
+        if (this.argFilter == null) {
+            synchronized (excludeArgs) {
+                if (this.argFilter == null) {
+                    this.argFilter = new PropertyPreFilter() {
+                        @Override
+                        public boolean apply(JSONSerializer serializer, Object object, String name) {
+                            return excludeArgs.contains(name);
+                        }
+                    };
+                }
+            }
+        }
+
+        return this.argFilter;
+    }
+
+    protected SerializeFilter getResultFilter() {
+        if (this.resultFilter == null) {
+            synchronized (excludeResults) {
+                this.resultFilter = new PropertyPreFilter() {
+                    @Override
+                    public boolean apply(JSONSerializer serializer, Object object, String name) {
+                        return excludeResults.contains(name);
+                    }
+                };
+            }
+        }
+
+        return this.resultFilter;
     }
 }
