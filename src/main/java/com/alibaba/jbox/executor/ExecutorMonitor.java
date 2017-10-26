@@ -198,7 +198,9 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
             executor = (ThreadPoolExecutor)executorProxy;
         } else if (Proxy.isProxyClass(executorProxy.getClass())) {
             Object target = ProxyUtil.getProxyTarget(executorProxy);
-            if (target instanceof ThreadPoolExecutor) {
+            if (target == null) {
+                executor = null;
+            } else if (target instanceof ThreadPoolExecutor) {
                 executor = (ThreadPoolExecutor)target;
             } else if (target instanceof SyncInvokeExecutorService) {
                 executor = null;
@@ -223,7 +225,7 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
         @Override
         public BiConsumer<StringBuilder, Object> accumulator() {
             return (stringBuilder, object) -> {
-                stringBuilder.append(" -> ");
+                stringBuilder.append("  -> ");
                 if (object != null) {
                     if (object instanceof AsyncRunnable || object instanceof AsyncCallable) {
                         Method taskInfoMethod = ReflectionUtils.findMethod(object.getClass(), "taskInfo");

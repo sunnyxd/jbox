@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
-import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
@@ -28,29 +27,46 @@ public class JboxUtils {
 
     private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox");
 
-    public static final Object EMPTY = new Object();
+    private static final String DEFAULT_LOCAL_IP = "127.0.0.1";
+
+    public static final Object EMPTY_OBJ = new Object();
 
     private static final ConcurrentMap<Method, String> simplifiedNameMap = new ConcurrentHashMap<>();
 
-    public static Object getFieldValue(@NonNull Object target, @NonNull String filedName) {
-        Field field = ReflectionUtils.findField(target.getClass(), filedName);
+    public static Object getFieldValue(@NonNull Object target, @NonNull String fieldName) {
+        Field field = ReflectionUtils.findField(target.getClass(), fieldName);
+
+        if (field == null) {
+            return null;
+        }
+
         ReflectionUtils.makeAccessible(field);
         return ReflectionUtils.getField(field, target);
     }
 
     public static Object getFieldValue(@NonNull Object target, @NonNull String outerFieldName,
                                        String... innerFieldNames) {
-        Object outerObject = getFieldValue(target, outerFieldName);
+        Object outerTarget = getFieldValue(target, outerFieldName);
 
         Object innerObject = null;
-        for (String innerFieldName : innerFieldNames) {
-            Preconditions.checkNotNull(outerObject);
-            Field innerField = ReflectionUtils.findField(outerObject.getClass(), innerFieldName);
-            ReflectionUtils.makeAccessible(innerField);
-            innerObject = ReflectionUtils.getField(innerField, outerObject);
+        if (innerFieldNames.length != 0) {
+            for (String innerFieldName : innerFieldNames) {
+                if (outerTarget == null) {
+                    break;
+                }
 
-            outerObject = innerObject;
+                Field innerField = ReflectionUtils.findField(outerTarget.getClass(), innerFieldName);
+                if (innerField == null) {
+                    break;
+                }
+
+                ReflectionUtils.makeAccessible(innerField);
+                innerObject = ReflectionUtils.getField(innerField, outerTarget);
+
+                outerTarget = innerObject;
+            }
         }
+
         return innerObject;
     }
 
@@ -158,22 +174,12 @@ public class JboxUtils {
                 }
             }
         } catch (SocketException e) {
-            logger.error("get local host ip error", e);
-            serverIp = "127.0.0.1";
+            logger.error("get local ip error:", e);
+            serverIp = DEFAULT_LOCAL_IP;
         }
 
         return serverIp;
     };
-
-    public static String getUsableBeanName(String initBeanName, BeanDefinitionRegistry registry) {
-        String beanName;
-        int index = 0;
-        do {
-            beanName = initBeanName + "#" + index++;
-        } while (registry.isBeanNameInUse(beanName));
-
-        return beanName;
-    }
 
     public static String trimPrefixAndSuffix(String value, String prefix, String suffix, boolean isNeedJudge) {
         if (!isNeedJudge) {
@@ -192,5 +198,22 @@ public class JboxUtils {
         }
 
         return value;
+    }
+
+    /**
+     * 获取一个可用的SpringBean name
+     *
+     * @param initBeanName : 初始bean name
+     * @param registry     : spring bean策略
+     * @return
+     */
+    public static String getUsableBeanName(String initBeanName, BeanDefinitionRegistry registry) {
+        String beanName;
+        int index = 0;
+        do {
+            beanName = initBeanName + "#" + index++;
+        } while (registry.isBeanNameInUse(beanName));
+
+        return beanName;
     }
 }

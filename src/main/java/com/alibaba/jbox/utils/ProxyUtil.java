@@ -8,6 +8,6 @@ package com.alibaba.jbox.utils;
 public class ProxyUtil {
 
     public static Object getProxyTarget(Object proxy) {
-        return AopTargetUtils.softReferenceMap.computeIfAbsent(proxy, (key) -> JboxUtils.getFieldValue(key, "h", "target"));
+        return JboxUtils.getFieldValue(proxy, "h", "target");
     }
 }
