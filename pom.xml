@@ -373,7 +373,6 @@
                                     <includes>
                                         <include>**/*.groovy</include>
                                     </includes>
-
                                 </fileset>
                             </sources>
                             <sourceEncoding>UTF-8</sourceEncoding>
