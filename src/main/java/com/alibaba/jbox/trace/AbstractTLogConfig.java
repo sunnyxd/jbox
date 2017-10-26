@@ -301,18 +301,10 @@ public abstract class AbstractTLogConfig implements Serializable {
         this.totalSizeCapKb = totalSizeCapKb;
     }
 
-    public Set<String> getExcludeArgs() {
-        return excludeArgs;
-    }
-
     public void setExcludeArgs(Set<String> excludeArgs) {
         if (excludeArgs != null && !excludeArgs.isEmpty()) {
             this.excludeArgs.addAll(excludeArgs);
         }
-    }
-
-    public Set<String> getExcludeResults() {
-        return excludeResults;
     }
 
     public void setExcludeResults(Set<String> excludeResults) {
@@ -328,7 +320,7 @@ public abstract class AbstractTLogConfig implements Serializable {
                     this.argFilter = new PropertyPreFilter() {
                         @Override
                         public boolean apply(JSONSerializer serializer, Object object, String name) {
-                            return excludeArgs.contains(name);
+                            return !excludeArgs.contains(name);
                         }
                     };
                 }
@@ -344,7 +336,7 @@ public abstract class AbstractTLogConfig implements Serializable {
                 this.resultFilter = new PropertyPreFilter() {
                     @Override
                     public boolean apply(JSONSerializer serializer, Object object, String name) {
-                        return excludeResults.contains(name);
+                        return !excludeResults.contains(name);
                     }
                 };
             }
