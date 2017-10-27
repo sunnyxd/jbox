@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.serializer.JSONSerializer;
 import com.alibaba.fastjson.serializer.PropertyPreFilter;
 import com.alibaba.fastjson.serializer.SerializeFilter;
 
@@ -317,12 +316,7 @@ public abstract class AbstractTLogConfig implements Serializable {
         if (this.argFilter == null) {
             synchronized (excludeArgs) {
                 if (this.argFilter == null) {
-                    this.argFilter = new PropertyPreFilter() {
-                        @Override
-                        public boolean apply(JSONSerializer serializer, Object object, String name) {
-                            return !excludeArgs.contains(name);
-                        }
-                    };
+                    this.argFilter = (PropertyPreFilter)(serializer, object, name) -> !excludeArgs.contains(name);
                 }
             }
         }
@@ -333,12 +327,7 @@ public abstract class AbstractTLogConfig implements Serializable {
     protected SerializeFilter getResultFilter() {
         if (this.resultFilter == null) {
             synchronized (excludeResults) {
-                this.resultFilter = new PropertyPreFilter() {
-                    @Override
-                    public boolean apply(JSONSerializer serializer, Object object, String name) {
-                        return !excludeResults.contains(name);
-                    }
-                };
+                this.resultFilter = (PropertyPreFilter)(serializer, object, name) -> !excludeResults.contains(name);
             }
         }
 

@@ -1,11 +1,13 @@
 package com.alibaba.jbox.trace;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -28,42 +30,49 @@ public class SpELHelpers {
     private static List<Method> CUSTOM_METHODS = new CopyOnWriteArrayList<>();
 
     static {
-        Method[] methods = SpELHelpers.class.getMethods();
-        for (Method method : methods) {
+        registerFunctions(SpELHelpers.class, "registerFunction", "registerFunctions");
+    }
+
+    /* -- 开放给用户用于导入helper工具方法, 以降低在XML/Groovy/Json配置文件书写的SpEL表达式复杂度 -- */
+
+    public static void registerFunctions(Class<?> clazz) {
+        registerFunctions(clazz, new String[0]);
+    }
+
+    public static void registerFunctions(Class<?> clazz, String... excludeMethods) {
+        for (Method method : clazz.getDeclaredMethods()) {
             if (Modifier.isStatic(method.getModifiers())
                 && Modifier.isPublic(method.getModifiers())
-                && !"registerFunction".equals(method.getName())) {
-
+                && !isExclude(method.getName(), excludeMethods)) {
                 registerFunction(method);
             }
         }
     }
 
-    /**
-     * 开放给外界可导入自定义工具函数, 以减少在xml/json/groovy/ELConfig中书写的spel复杂度
-     *
-     * @param staticMethod: 注册到spel环境中的函数(必须为public、static修饰)
-     */
     public static void registerFunction(Method staticMethod) {
         if (!Modifier.isStatic(staticMethod.getModifiers())
             || !Modifier.isPublic(staticMethod.getModifiers())) {
 
             throw new IllegalArgumentException(
-                String.format("method [%s] is not static, SpEL is not support.", staticMethod)
+                String.format("method [%s] is not public static, SpEL is not support.", staticMethod)
             );
         }
 
         CUSTOM_METHODS.add(staticMethod);
     }
 
-    public static void registerFunctions(Class<?> clazz) {
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (Modifier.isStatic(method.getModifiers())
-                && Modifier.isPublic(method.getModifiers())) {
+    private static boolean isExclude(String method, String... excludeMethods) {
+        if (excludeMethods == null || excludeMethods.length == 0) {
+            return false;
+        }
 
-                registerFunction(method);
+        for (String excludeMethod : excludeMethods) {
+            if (excludeMethod.equals(method)) {
+                return true;
             }
         }
+
+        return false;
     }
 
     /**
@@ -135,6 +144,7 @@ public class SpELHelpers {
     /** ****************************************** **/
     /**  默认注册到SpEL环境中的工具函数(尽量减少额外依赖)  **/
     /************************************************/
+    // -> start
     public static <T> Collection<T> isNotEmpty(Collection<T> collection) {
         if (collection != null && !collection.isEmpty()) {
             return collection;
@@ -150,5 +160,101 @@ public class SpELHelpers {
     public static <T> T ifEmptyGetDefault(List<T> list, int index, T defaultObj) {
         T obj = ifNotEmptyGet(list, index);
         return obj == null ? defaultObj : obj;
+    }
+
+    /**
+     * 获取target内的property属性值, 以弥补SpEL表达式不支持获取父类属性值得缺陷
+     * 如果property属性是存在target的父类中的话, 'target?.property'会抛出异常
+     * 可以将其替换为 #getProperty(target, 'property')
+     *
+     * @param target
+     * @param property
+     * @return
+     */
+    public static Object getProperty(Object target, String property) {
+        return getPropertyOrDefault(target, property, null);
+    }
+
+    public static Object getPropertyOrDefault(Object target, String property, Object defaultValue) {
+        return Optional.ofNullable(target)
+            .map(t -> doGetProperty(target, property, defaultValue))
+            .orElse(defaultValue);
+    }
+
+    private static Object doGetProperty(Object target, String property, Object defaultValue) {
+
+        Field field = findField(target.getClass(), property, null);
+        if (field == null) {
+            return defaultValue;
+        }
+
+        makeAccessible(field);
+        Object value = getField(field, target);
+        return value == null ? defaultValue : value;
+    }
+    // <- end
+
+    /* -------- copy from spring public to private 降低对其他模块的依赖 ---------- */
+
+    /**
+     * Attempt to find a {@link Field field} on the supplied {@link Class} with the
+     * supplied {@code name} and/or {@link Class type}. Searches all superclasses
+     * up to {@link Object}.
+     *
+     * @param clazz the class to introspect
+     * @param name  the name of the field (may be {@code null} if type is specified)
+     * @param type  the type of the field (may be {@code null} if name is specified)
+     * @return the corresponding Field object, or {@code null} if not found
+     */
+    private static Field findField(Class<?> clazz, String name, Class<?> type) {
+        Class<?> searchType = clazz;
+        while (!Object.class.equals(searchType) && searchType != null) {
+            Field[] fields = searchType.getDeclaredFields();
+            for (Field field : fields) {
+                if ((name == null || name.equals(field.getName())) &&
+                    (type == null || type.equals(field.getType()))) {
+                    return field;
+                }
+            }
+            searchType = searchType.getSuperclass();
+        }
+        return null;
+    }
+
+    /**
+     * Make the given field accessible, explicitly setting it accessible if
+     * necessary. The {@code setAccessible(true)} method is only called
+     * when actually necessary, to avoid unnecessary conflicts with a JVM
+     * SecurityManager (if active).
+     *
+     * @param field the field to make accessible
+     * @see java.lang.reflect.Field#setAccessible
+     */
+    private static void makeAccessible(Field field) {
+        if ((!Modifier.isPublic(field.getModifiers()) ||
+            !Modifier.isPublic(field.getDeclaringClass().getModifiers()) ||
+            Modifier.isFinal(field.getModifiers()))
+            && !field.isAccessible()) {
+            field.setAccessible(true);
+        }
+    }
+
+    /**
+     * Get the field represented by the supplied {@link Field field object} on the
+     * specified {@link Object target object}. In accordance with {@link Field#get(Object)}
+     * semantics, the returned value is automatically wrapped if the underlying field
+     * has a primitive type.
+     *
+     * @param field  the field to get
+     * @param target the target object from which to get the field
+     * @return the field's current value
+     */
+    private static Object getField(Field field, Object target) {
+        try {
+            return field.get(target);
+        } catch (IllegalAccessException ex) {
+            throw new IllegalStateException(
+                "Unexpected reflection exception - " + ex.getClass().getName() + ": " + ex.getMessage());
+        }
     }
 }
