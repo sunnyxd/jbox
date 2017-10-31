@@ -1,4 +1,4 @@
-# jbox 业务工具集合(类似Guava)
+# Jbox 业务工具包
 
 ### executor- 定制线程池
 - `ExecutorsManager`
