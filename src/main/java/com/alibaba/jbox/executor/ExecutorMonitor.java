@@ -28,7 +28,7 @@ import com.alibaba.jbox.scheduler.TaskScheduler;
 import com.alibaba.jbox.spring.AbstractApplicationContextAware;
 import com.alibaba.jbox.stream.StreamForker;
 import com.alibaba.jbox.utils.JboxUtils;
-import com.alibaba.jbox.utils.ProxyUtil;
+import com.alibaba.jbox.utils.ProxyTargetUtils;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.springframework.beans.BeansException;
@@ -40,7 +40,6 @@ import org.springframework.util.ReflectionUtils;
 
 import static com.alibaba.jbox.executor.ExecutorManager.executors;
 import static com.alibaba.jbox.executor.ExecutorManager.recorders;
-import static com.alibaba.jbox.utils.JboxUtils.getUsableBeanName;
 import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_SINGLETON;
 
 /**
@@ -197,7 +196,7 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
         if (executorProxy instanceof ThreadPoolExecutor) {
             executor = (ThreadPoolExecutor)executorProxy;
         } else if (Proxy.isProxyClass(executorProxy.getClass())) {
-            Object target = ProxyUtil.getProxyTarget(executorProxy);
+            Object target = ProxyTargetUtils.getJdkProxyTarget(executorProxy);
             if (target == null) {
                 executor = null;
             } else if (target instanceof ThreadPoolExecutor) {
@@ -310,5 +309,22 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
     public void setPeriod(long period) {
         this.period = period;
+    }
+
+    /**
+     * 获取一个可用的SpringBean name
+     *
+     * @param initBeanName : 初始bean name
+     * @param registry     : spring bean策略
+     * @return
+     */
+    private static String getUsableBeanName(String initBeanName, BeanDefinitionRegistry registry) {
+        String beanName;
+        int index = 0;
+        do {
+            beanName = initBeanName + "#" + index++;
+        } while (registry.isBeanNameInUse(beanName));
+
+        return beanName;
     }
 }

@@ -6,7 +6,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import static com.alibaba.jbox.trace.ELResolveHelpers.replaceRefToRealString
-
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
@@ -17,7 +16,8 @@ class ELXmlResolver {
     private static final Logger logger = LoggerFactory.getLogger(TLogManager.class)
 
     static void resolve(String fileName, InputStream xmlIs, Map<String, List<AbstractTLogConfig.ELConfig>> methodELMap) {
-        def slurper = new XmlSlurper(false, true)
+        def slurper = new XmlSlurper(true, true)
+//        slurper.setErrorHandler(new SimpleSaxErrorHandler(LogFactory.getLog(TLogManager.class)))
         GPathResult traces = slurper.parse(xmlIs)
 
         // 1. read definitions

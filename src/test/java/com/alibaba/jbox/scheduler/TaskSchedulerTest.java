@@ -27,7 +27,7 @@ public class TaskSchedulerTest {
         });
         scheduler.start();
 
-        Thread.sleep(100000);
+        Thread.sleep(1000);
         scheduler.shutdown();
     }
 

@@ -14,7 +14,7 @@ import java.util.Queue;
  * Usage: append -javaagent:${jbox.jar file location} VM options
  * like as -javaagent:/Users/${user}/.m2/com/alibaba/jbox/${jbox-version}/${jbox-version}.jar
  *
- * @author jifang
+ * @author jifang@alibaba-inc.com
  * @since 2016/12/11 上午11:23.
  */
 public class SizeOf {
@@ -28,8 +28,8 @@ public class SizeOf {
     public static long sizeOf(Object obj) {
         if (instrumentation == null) {
             throw new IllegalStateException("Can not access instrumentation environment.\n" +
-                    "Please check if jar file containing SizeOf class is \n" +
-                    "specified in the java's \"-javaagent\" command line argument.");
+                "Please check if jar file containing SizeOf class is \n" +
+                "specified in the java's \"-javaagent\" command line argument.");
         }
         return instrumentation.getObjectSize(obj);
     }
@@ -93,7 +93,7 @@ public class SizeOf {
 
     private static boolean isNeedSkip(Object obj, Map<Object, Object> visited) {
         // null、常量池对象、visited
-        return obj == null || (obj instanceof String && obj == ((String) obj).intern()) || visited.containsKey(obj);
+        return obj == null || (obj instanceof String && obj == ((String)obj).intern()) || visited.containsKey(obj);
     }
 
     private static boolean isNotPrimitiveArray(Class<?> clazz) {

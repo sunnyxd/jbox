@@ -99,84 +99,97 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             logEntities.add(event.getClientIp());                                         // nullable
 
             // get config from specified configs map
-            List<ELConfig> eLConfigs = getMethodELMap().getOrDefault(
+            List<ELConfig> configs = getMethodELMap().getOrDefault(
                 event.getConfigKey(), Collections.emptyList()
             );
 
             // check is multi config or not
-            Object[] multi = getMultiConfig(eLConfigs);
+            Object[] multi = getMultiConfig(configs);
             int multiIdx = (int)multi[0];
-            ELConfig multiConfig = (ELConfig)multi[1];
-            List<ELConfig> notMultiELConfigs = (List<ELConfig>)multi[2];
+            ELConfig multiCfg = (ELConfig)multi[1];
+            List<ELConfig> notMultiCfgs = (List<ELConfig>)multi[2];
 
             if (multiIdx == -1) {   // do as single config
-                evalSingleConfig(event, logEntities, notMultiELConfigs);
+                logAsSingle(event, logEntities, notMultiCfgs);
             } else {                // do as multi config
-                evalMultiConfig(event, logEntities, notMultiELConfigs, multiIdx, multiConfig);
+                logAsMulti(event, logEntities, notMultiCfgs, multiIdx, multiCfg);
             }
         }
 
-        private Object[] getMultiConfig(List<ELConfig> eLConfigs) {
-            List<ELConfig> notMultiELConfigs = new ArrayList<>(eLConfigs.size());
+        private Object[] getMultiConfig(List<ELConfig> configs) {
+            List<ELConfig> notMultiCfgs = new ArrayList<>(configs.size());
 
             int multiIdx = -1;
-            ELConfig multiConfig = null;
-            for (int i = 0; i < eLConfigs.size(); ++i) {
-                ELConfig config = eLConfigs.get(i);
+            ELConfig multiCfg = null;
+            for (int i = 0; i < configs.size(); ++i) {
+                ELConfig config = configs.get(i);
 
                 if (config.isMulti()) {
                     multiIdx = i;
-                    multiConfig = config;
+                    multiCfg = config;
                 } else {
-                    notMultiELConfigs.add(config);
+                    notMultiCfgs.add(config);
                 }
             }
 
-            return new Object[] {multiIdx, multiConfig, notMultiELConfigs};
+            return new Object[] {multiIdx, multiCfg, notMultiCfgs};
         }
 
-        private void evalSingleConfig(LogEvent logEvent, List<Object> logEntities,
-                                      List<ELConfig> notMultiELConfigs) {
-            // 非multi的SpELConfig内只有paramEL内有值/有效
-            List<String> paramELs = notMultiELConfigs.stream().map(ELConfig::getParamEL).collect(toList());
+        private void logAsSingle(LogEvent logEvent, List<Object> logEntities, List<ELConfig> notMultiCfgs) {
 
-            // 将根据spel计算的结果与原metadata合并
+            // not-multi-config内只有paramEL有效
+            List<String> paramELs = notMultiCfgs.stream().map(ELConfig::getParamEL).collect(toList());
+
+            // append到从TraceAspect默认采集的MetaData后面
             List<Object> evalResults = SpELHelpers.evalSpelWithEvent(logEvent, paramELs, getPlaceHolder());
             logEntities.addAll(evalResults);
 
             doLogger(logEntities);
         }
 
-        private void evalMultiConfig(LogEvent logEvent, List<Object> logEntities, List<ELConfig> notMultiELConfigs,
-                                     int multiIdx, ELConfig multiConfig) {
-            // 0) 首先拿非multi的Config计算: 非multi的SpELConfig内只有paramEL内有值/有效
+        private void logAsMulti(LogEvent logEvent, List<Object> logEntities, List<ELConfig> notMultiELConfigs,
+                                int multiIdx, ELConfig multiCfg) {
+            // 0. 首先将not-multi的config表达式计算出站位值(not-multi-config内只有paramEL有效)
             List<String> notMultiParamELs = notMultiELConfigs.stream().map(ELConfig::getParamEL).collect(toList());
             List<Object> notMultiEvalResults = SpELHelpers.evalSpelWithEvent(logEvent, notMultiParamELs,
                 getPlaceHolder());
 
-            // 1) 根据multiPramEL提取出ListArg
-            List<Object> multiArgs = SpELHelpers.evalSpelWithEvent(event,
-                Collections.singletonList(multiConfig.getParamEL()), getPlaceHolder());
-            Preconditions.checkState(multiArgs.size() == 1);
+            // 1. 将multi指定的参数转换为list
+            List listArg = evalMultiValue(logEvent, multiCfg);
 
-            List listArg = transMultiArgToList(multiArgs.get(0));
-
-            // 2) 遍历list argument
+            // 2. 遍历list, 将其与not-multi-value & TraceAspect采集到的MetaData合并
             for (Object listArgEntry : listArg) {
 
                 // 2.1)
                 List<Object> multiEvalResults;
-                if (multiConfig.getInListParamEL().isEmpty()) {                 // 没有inner field, 如'List<String>'
+                if (multiCfg.getInListParamEL().isEmpty()) {                    // 没有field(inner), 如'List<String>'
                     multiEvalResults = Collections.singletonList(listArgEntry);
-                } else {                                                        // 有  inner filed, 如'List<User>'
-                    multiEvalResults = SpELHelpers.evalSpelWithObject(listArgEntry, multiConfig.getInListParamEL(),
+                } else {                                                        // 有filed(inner), 如'List<User>'
+                    multiEvalResults = SpELHelpers.evalSpelWithObject(listArgEntry, multiCfg.getInListParamEL(),
                         getPlaceHolder());
                 }
 
-                // 2.2)
-                appendEvalResultsAndLog(notMultiEvalResults, multiEvalResults, logEntities, multiIdx,
-                    notMultiELConfigs.size() + 1);
+                // 2.2) 将trace-metadata、not-multi-value、multi-value三者合并
+                List<Object> logEntitiesCopy = mergeEvalResult(notMultiEvalResults, multiEvalResults, logEntities,
+                    multiIdx, notMultiELConfigs.size() + 1);
+
+                doLogger(logEntitiesCopy);
             }
+        }
+
+        /**
+         * 使用multi-config指定的paramEL对event求值, 并将值转换为List
+         *
+         * @param logEvent
+         * @param multiCfg
+         * @return
+         */
+        private List evalMultiValue(LogEvent logEvent, ELConfig multiCfg) {
+            List<Object> multiArgs = SpELHelpers.evalSpelWithEvent(logEvent,
+                Collections.singletonList(multiCfg.getParamEL()), getPlaceHolder());
+            Preconditions.checkState(multiArgs.size() == 1);
+
+            return transMultiArgToList(multiArgs.get(0));
         }
 
         @SuppressWarnings("unchecked")
@@ -194,11 +207,10 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
             }
         }
 
-        private void appendEvalResultsAndLog(List<Object> notMultiEvalResults, List<Object> multiEvalResults,
+        private List<Object> mergeEvalResult(List<Object> notMultiEvalResults, List<Object> multiEvalResults,
                                              List<Object> logEntities, int multiIdx, int paramCount) {
             List<Object> logEntitiesCopy = new ArrayList<>(logEntities);
-            int notMultiResultIdx = 0;
-            for (int paramIdx = 0; paramIdx < paramCount; ++paramIdx) {
+            for (int paramIdx = 0, notMultiResultIdx = 0; paramIdx < paramCount; ++paramIdx) {
                 if (paramIdx == multiIdx) {                 // is multi arg
                     logEntitiesCopy.addAll(multiEvalResults);
                 } else {
@@ -207,7 +219,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
                 }
             }
 
-            doLogger(logEntitiesCopy);
+            return logEntitiesCopy;
         }
 
         private void doLogger(List<Object> logEntities) {
@@ -223,7 +235,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
         }
     }
 
-    private static String ifNotNull(Object nullableObj, Function<Object, String> processor) {
+    private String ifNotNull(Object nullableObj, Function<Object, String> processor) {
         return nullableObj == null ? null : processor.apply(nullableObj);
     }
 }

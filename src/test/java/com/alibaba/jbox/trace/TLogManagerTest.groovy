@@ -1,6 +1,7 @@
 package com.alibaba.jbox.trace
 
 import org.springframework.core.io.FileSystemResource
+
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
@@ -8,9 +9,9 @@ import org.springframework.core.io.FileSystemResource
  */
 class TLogManagerTest extends GroovyTestCase {
 
-    void testParseFromXml() throws IOException {
+    public static void main(String[] args) throws IOException {
         TLogManager tLogManager = new TLogManager()
-        tLogManager.setELResource(new FileSystemResource("/Users/jifang.zjf/IdeaProjects/jbox/src/test/java/resources/tlog-config.xml"))
+        tLogManager.setResource(new FileSystemResource("/Users/jifang.zjf/IdeaProjects/jbox/src/test/java/resources/tlog-config.xml"))
         System.out.println(tLogManager.getMethodELMap())
         assertTrue tLogManager.methodELMap.size() == 7
         def userWrapperSize = tLogManager.methodELMap.find { key, value ->

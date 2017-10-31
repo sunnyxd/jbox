@@ -364,12 +364,12 @@ public class DiamondPropertySourcesPlaceholder
                 String[] beanNames = beanFactory.getBeanDefinitionNames();
                 for (String beanName : beanNames) {
                     Object bean = beanFactory.getBean(beanName);
-                    initBeanMap(AopTargetUtils.getTarget(bean));
+                    initBeanMap(AopTargetUtils.getAopTarget(bean));
                 }
 
                 // 将Spring外的Bean也放入beanAnnotatedByValue管理
                 for (Object bean : beanNotInSpring) {
-                    initBeanMap(AopTargetUtils.getTarget(bean));
+                    initBeanMap(AopTargetUtils.getAopTarget(bean));
                 }
             } catch (Exception e) {
                 logger.error("initBeansMap error", e);

@@ -2,29 +2,12 @@
 <traces xmlns="http://www.alibaba.com/jbox/trace"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.alibaba.com/jbox/trace
-       http://www.alibaba.com/jbox/trace.xsd">
+       http://localhost:8080/jbox/trace.xsd">
 
     <define name="service" value="com.cainiao.webapp.service.impl.HelloWorldServiceImpl"/>
-    <define name=""  value="ss"/>
-    
-    <trace method="">
-        <expression key="">
-            <field value=""/>
-        </expression>
-    </trace>
-    
-
-    <trace method="">
-        <expression key="" multi="true">
-            <field value=""/>
-        </expression>
-    </trace>
-    <trace method="" ref="">
-
-    </trace>
 
     <trace method="${service}:sayHello">
-        <expression key="#args[0]" multi="false"/>
+        <expression key="#args[0]"/>
         <expression key="#result"/>
         <expression key="#ph"/>
     </trace>

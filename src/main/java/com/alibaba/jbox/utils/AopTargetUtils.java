@@ -1,57 +1,83 @@
 package com.alibaba.jbox.utils;
 
-import org.springframework.aop.framework.AdvisedSupport;
-import org.springframework.aop.framework.AopProxy;
-import org.springframework.aop.support.AopUtils;
-import org.springframework.util.ConcurrentReferenceHashMap;
+import java.util.concurrent.TimeUnit;
 
-import java.lang.reflect.Field;
-import java.util.concurrent.ConcurrentMap;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import org.springframework.aop.framework.AdvisedSupport;
+import org.springframework.aop.support.AopUtils;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
- * @since 2017/8/22 15:47:00.
+ * @since 2016/8/22 15:47:00.
  */
 public class AopTargetUtils {
 
-    static final ConcurrentMap<Object, Object> softReferenceMap = new ConcurrentReferenceHashMap<>();
+    private static final long EXPIRE_DURATION = 30;
 
-    public static Object getTarget(Object bean) throws Exception {
-        Object target = softReferenceMap.get(bean);
+    private static LoadingCache<Object, Object> targetCache = CacheBuilder.newBuilder()
+        .expireAfterAccess(EXPIRE_DURATION, TimeUnit.MINUTES)
+        .recordStats()
+        .build(new CacheLoader<Object, Object>() {
+            @Override
+            public Object load(Object proxy) throws Exception {
+                if (proxy == null) {
+                    return null;
+                }
 
-        if (target == null) {
-            if (AopUtils.isAopProxy(bean)) {
-                target = AopUtils.isJdkDynamicProxy(bean) ? getJDKProxyTarget(bean) : getCglibProxyTarget(bean);
-            } else {
-                target = bean;
+                try {
+                    // not aop proxy
+                    if (!AopUtils.isAopProxy(proxy)) {
+                        return proxy;
+                    }
+
+                    if (AopUtils.isCglibProxy(proxy)) {
+                        return getCglibProxyTarget(proxy);
+                    } else if (AopUtils.isJdkDynamicProxy(proxy)) {
+                        return getJDKProxyTarget(proxy);
+                    } else {
+                        return null;
+                    }
+
+                } catch (Exception e) {
+                    LoggerUtils.error("proxy: {}, getAopProxyTarget error, use default null", proxy, e);
+                    return null;
+                }
             }
-            softReferenceMap.put(bean, target);
-        }
+        });
 
-        return target;
+    public static Object getAopTarget(Object bean) {
+        return targetCache.getUnchecked(bean);
     }
+
+    private static final String JDK_CALLBACK = "h";
+
+    private static final String JDK_ADVISED = "advised";
 
     private static Object getJDKProxyTarget(Object proxy) throws Exception {
-        Field h = proxy.getClass().getSuperclass().getDeclaredField("h");
-        h.setAccessible(true);
-        AopProxy aopProxy = (AopProxy) h.get(proxy);
+        AdvisedSupport advisedSupport = (AdvisedSupport)JboxUtils.getFieldValue(proxy, JDK_CALLBACK, JDK_ADVISED);
 
-        Field advised = aopProxy.getClass().getDeclaredField("advised");
-        advised.setAccessible(true);
-
-        return ((AdvisedSupport) advised.get(aopProxy)).getTargetSource().getTarget();
+        if (advisedSupport == null) {
+            return null;
+        } else {
+            return advisedSupport.getTargetSource().getTarget();
+        }
     }
 
+    private static final String CGLIB_CALLBACK = "CGLIB$CALLBACK_0";
+
+    private static final String CGLIB_ADVISED = "advised";
+
     private static Object getCglibProxyTarget(Object proxy) throws Exception {
-        Field h = proxy.getClass().getDeclaredField("CGLIB$CALLBACK_0");
-        h.setAccessible(true);
-        Object dynamicAdvisedInterceptor = h.get(proxy);
+        AdvisedSupport advisedSupport = (AdvisedSupport)JboxUtils.getFieldValue(proxy, CGLIB_CALLBACK, CGLIB_ADVISED);
 
-        Field advised = dynamicAdvisedInterceptor.getClass().getDeclaredField("advised");
-        advised.setAccessible(true);
-
-        return ((AdvisedSupport) advised.get(dynamicAdvisedInterceptor)).getTargetSource().getTarget();
+        if (advisedSupport == null) {
+            return null;
+        } else {
+            return advisedSupport.getTargetSource().getTarget();
+        }
     }
 }
 

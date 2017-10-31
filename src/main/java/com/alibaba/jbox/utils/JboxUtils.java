@@ -9,31 +9,30 @@ import java.net.SocketException;
 import java.util.Enumeration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 
-import lombok.NonNull;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.util.ReflectionUtils;
 
 /**
- * @author jifang
+ * Jbox内部调用Util方法
+ *
+ * @author jifang@alibaba-inc.com
  * @since 16/8/18 下午6:09.
  */
 public class JboxUtils {
 
-    private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox");
+    /* ------- #1 --------- reflection get field value -------------------- */
 
-    private static final String DEFAULT_LOCAL_IP = "127.0.0.1";
+    public static Object getFieldValue(Object target, String fieldName) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(fieldName), "field name can not be empty: %s", fieldName);
 
-    public static final Object EMPTY_OBJ = new Object();
+        if (target == null) {
+            return null;
+        }
 
-    private static final ConcurrentMap<Method, String> simplifiedNameMap = new ConcurrentHashMap<>();
-
-    public static Object getFieldValue(@NonNull Object target, @NonNull String fieldName) {
         Field field = ReflectionUtils.findField(target.getClass(), fieldName);
 
         if (field == null) {
@@ -44,12 +43,19 @@ public class JboxUtils {
         return ReflectionUtils.getField(field, target);
     }
 
-    public static Object getFieldValue(@NonNull Object target, @NonNull String outerFieldName,
-                                       String... innerFieldNames) {
+    public static Object getFieldValue(Object target, String outerFieldName, String... innerFieldNames) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(outerFieldName),
+            "outer field name can not be empty: %s",
+            outerFieldName);
+
+        if (target == null) {
+            return null;
+        }
+
         Object outerTarget = getFieldValue(target, outerFieldName);
 
         Object innerObject = null;
-        if (innerFieldNames.length != 0) {
+        if (innerFieldNames != null && innerFieldNames.length != 0) {
             for (String innerFieldName : innerFieldNames) {
                 if (outerTarget == null) {
                     break;
@@ -70,6 +76,8 @@ public class JboxUtils {
         return innerObject;
     }
 
+    /* ------- #2 --------- JoinPoint get current method -------------------- */
+
     public static Method getAbstractMethod(JoinPoint pjp) {
         MethodSignature ms = (MethodSignature)pjp.getSignature();
         Method method = ms.getMethod();
@@ -85,8 +93,107 @@ public class JboxUtils {
         return method;
     }
 
+    /* ------- #3 --------- get current thread current stack trace --------------- */
+
+    /**
+     * trim Thread.getStackTrace() 、JboxUtils.getStackTrace() stack in return StackTrace
+     */
+    private static final int STACK_BASE_DEEP = 2;
+
+    public static String getStackTrace() {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        if (stackTrace != null && stackTrace.length > STACK_BASE_DEEP) {
+            StringBuilder sb = new StringBuilder("current thread [")
+                .append(Thread.currentThread().getName())
+                .append("] : ");
+
+            for (int i = STACK_BASE_DEEP; i < stackTrace.length; ++i) {
+                sb.append("\n\t")
+                    .append(stackTrace[i]);
+            }
+
+            return sb.toString();
+        }
+
+        return "";
+    }
+
+    /* ------- #4 --------- get current server local IP(IPv4) --------------- */
+
+    private static String serverIp = null;
+
+    public static String getServerIp() {
+        return serverIp == null ? (serverIp = doGetServerIp()) : serverIp;
+    }
+
+    private static final String DEFAULT_LOCAL_IP = "127.0.0.1";
+
+    private static String doGetServerIp() {
+        try {
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            while (networkInterfaces.hasMoreElements()) {
+                NetworkInterface networkInterface = networkInterfaces.nextElement();
+                Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+
+                while (inetAddresses.hasMoreElements()) {
+                    InetAddress inetAddress = inetAddresses.nextElement();
+                    if (inetAddress instanceof Inet4Address
+                        && !inetAddress.isLoopbackAddress()
+                        && !inetAddress.isSiteLocalAddress()) {
+
+                        return inetAddress.getHostAddress();
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            LoggerUtils.error("get local ip error:", e);
+            serverIp = DEFAULT_LOCAL_IP;
+        }
+
+        return DEFAULT_LOCAL_IP;
+    }
+
+    /* ------- #5 --------- String utils, trim prefix and suffix --------------- */
+
+    public static String trimPrefixAndSuffix(String value, String prefix, String suffix, boolean isNeedJudge) {
+        if (Strings.isNullOrEmpty(value)) {
+            return value;
+        }
+
+        Preconditions.checkArgument(prefix != null, "prefix can not be null");
+        Preconditions.checkArgument(suffix != null, "suffix can not be null");
+
+        if (!isNeedJudge) {
+            return value.substring(prefix.length(), value.length() - suffix.length());
+        } else {
+            return trimPrefixAndSuffix(value, prefix, suffix);
+        }
+    }
+
+    public static String trimPrefixAndSuffix(String value, String prefix, String suffix) {
+        if (Strings.isNullOrEmpty(value)) {
+            return value;
+        }
+
+        Preconditions.checkArgument(prefix != null, "prefix can not be null");
+        Preconditions.checkArgument(suffix != null, "suffix can not be null");
+
+        if (value.startsWith(prefix)) {
+            value = value.substring(prefix.length());
+        }
+        if (value.endsWith(suffix)) {
+            value = value.substring(0, value.length() - suffix.length());
+        }
+
+        return value;
+    }
+
+    /* ------- #6 --------- convert method to a simplified string -------------------- */
+
+    private static final ConcurrentMap<Method, String> SIMPLIFIED_METHOD_NAME_MAP = new ConcurrentHashMap<>();
+
     public static String getSimplifiedMethodName(Method method) {
-        return simplifiedNameMap.computeIfAbsent(method, (m) -> {
+        return SIMPLIFIED_METHOD_NAME_MAP.computeIfAbsent(method, (m) -> {
             try {
                 StringBuilder sb = new StringBuilder();
 
@@ -127,93 +234,5 @@ public class JboxUtils {
             name = name.substring(index + 1);
         }
         return name;
-    }
-
-    public static String getStackTrace() {
-        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-        if (stackTrace != null && stackTrace.length > 2) {
-            StringBuilder sb = new StringBuilder("current thread [")
-                .append(Thread.currentThread().getName())
-                .append("] : ");
-
-            for (int i = 2 /*trim Thread.getStackTrace() & JboxUtils.getStackTrace() */; i < stackTrace.length; ++i) {
-                sb.append("\n\t").append(stackTrace[i]);
-            }
-
-            return sb.toString();
-        }
-
-        return "";
-    }
-
-    private static String serverIp = null;
-
-    public static String getServerIp() {
-        return serverIp == null ? (serverIp = serverIpSupplier.get()) : serverIp;
-    }
-
-    private static final Supplier<String> serverIpSupplier = () -> {
-        String serverIp = null;
-        try {
-            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
-            boolean fonded = false;
-            while (!fonded && networkInterfaces.hasMoreElements()) {
-                NetworkInterface networkInterface = networkInterfaces.nextElement();
-                Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
-
-                while (inetAddresses.hasMoreElements()) {
-                    InetAddress inetAddress = inetAddresses.nextElement();
-                    if (inetAddress instanceof Inet4Address
-                        && !inetAddress.isLoopbackAddress()
-                        && !inetAddress.isSiteLocalAddress()) {
-
-                        serverIp = inetAddress.getHostAddress();
-                        fonded = true;
-                        break;
-                    }
-                }
-            }
-        } catch (SocketException e) {
-            logger.error("get local ip error:", e);
-            serverIp = DEFAULT_LOCAL_IP;
-        }
-
-        return serverIp;
-    };
-
-    public static String trimPrefixAndSuffix(String value, String prefix, String suffix, boolean isNeedJudge) {
-        if (!isNeedJudge) {
-            return value.substring(prefix.length(), value.length() - suffix.length());
-        } else {
-            return trimPrefixAndSuffix(value, prefix, suffix);
-        }
-    }
-
-    public static String trimPrefixAndSuffix(String value, String prefix, String suffix) {
-        if (value.startsWith(prefix)) {
-            value = value.substring(prefix.length());
-        }
-        if (value.endsWith(suffix)) {
-            value = value.substring(0, value.length() - suffix.length());
-        }
-
-        return value;
-    }
-
-    /**
-     * 获取一个可用的SpringBean name
-     *
-     * @param initBeanName : 初始bean name
-     * @param registry     : spring bean策略
-     * @return
-     */
-    public static String getUsableBeanName(String initBeanName, BeanDefinitionRegistry registry) {
-        String beanName;
-        int index = 0;
-        do {
-            beanName = initBeanName + "#" + index++;
-        } while (registry.isBeanNameInUse(beanName));
-
-        return beanName;
     }
 }
