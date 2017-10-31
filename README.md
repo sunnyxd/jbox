@@ -1,21 +1,53 @@
-# jbox 通用工具集合(类似Guava)
-## 提供
-- 定制的线程池: `ExecutorsManager`、`ExecutorsMonitor`, 详细说明请参考`com.alibaba.jbox.executor.ExecutorManager`
-- flood ab test框架: `com.alibaba.jbox.flood.AbFloodExperiment`
-- Log配置动态修改Configurator, 支持Logback, Log4j: `LogbackConfigurator`、`Log4jConfigurator`
-- 反射简化工具: `com.alibaba.jbox.reflections.Reflect`
-- 通用单机调度框架: `com.alibaba.jbox.scheduler.TaskScheduler`
+# jbox 业务工具集合(类似Guava)
+## 功能模块
+### executor- 定制线程池
+- `ExecutorsManager`
+- `ExecutorsMonitor`
+详见: `com.alibaba.jbox.executor.ExecutorManager`
+
+### flood- ab test框架
+详见: `com.alibaba.jbox.flood.AbFloodExperiment`
+
+### scheduler- 单机任务调度框架
+详见: `com.alibaba.jbox.scheduler.TaskScheduler`
+
+
+### script
+
+### spring
 - Spring容器启动耗时监控: `com.alibaba.jbox.spring.BeanInstantiationMonitor`
 - Spring `@Value` 注解适配Diamond配置, 支持动态修改属性配置: `com.alibaba.jbox.spring.DiamondPropertySourcesPlaceholder`
 - 非Spring托管Bean `@Resource`、`@Autowired`、`@Value`生效适配器: `com.alibaba.jbox.spring.SpringAutowiredAdaptor`
-- Stream多级利用: `com.alibaba.jbox.stream.StreamForker`
-- 基于注解的性能监控工具: `com.alibaba.jbox.trace.TraceAspect`支持:
-    1. 在方法执行前将`traceId`塞入slf4j MDC;
-    2. 方法入参`@NotNull`、`@NotEmpty` 校验;
-    3. 方法执行耗时监控.
-- 通用工具`com.alibaba.jbox.utils`:
 
-| Util | desc |
+
+### stream
+Stream多级利用: `com.alibaba.jbox.stream.StreamForker`
+
+### trace
+- TraceAspect: 基于Aop性能监控工具
+    1. 在方法执行前将`traceId`导入`MDC`;
+    2. 方法入参`javax.validation`校验;
+    3. `Sentinel`限流监控;
+    4. 方法**入参**、**返回值**、**执行耗时**监控.
+- TLogManager: log统一接入大盘, 目前支持SpEL(json、xml)配置日志占位符
+
+| 默认占位打印 | desc |
+| :------: | :-------- |
+| `invoke thread` | 方法执行线程 |
+| `rt`            | 方法执行耗时 |
+| `class name`    | 方法所属类名 |
+| `method name`   | 方法名 |
+| `args`          | 入参 |
+| `result`        | 返回值 |
+| `exception`     | 方法执行抛出异常 |
+| `server ip`     | 所属机器IP |
+| `trace id`      | EagleEye TraceId | 
+| `client name`   | 调用方name |
+| `client ip`     | 调用方IP |
+
+### utils- 通用工具
+
+| Utils | desc |
 | :------: | :-------- |
 | `AopTargetUtils` | 获取Aop target |
 | `BeanCopyUtil` | Bean属性对拷, 忽略属性类型 |
