@@ -9,7 +9,7 @@ import java.util.Map;
  * @version 1.0
  * @since 2017/10/10 11:36:00.
  */
-class Context {
+public class AsyncContext {
 
     private Thread parent;
 
@@ -17,7 +17,7 @@ class Context {
 
     private Map<String, Object> extContext;
 
-    Context(Thread parent, String group) {
+    AsyncContext(Thread parent, String group) {
         this.parent = parent;
         this.group = group;
     }

@@ -2,10 +2,7 @@ package com.alibaba.jbox.spring;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,428 +10,332 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.executor.AsyncRunnable;
+import com.alibaba.jbox.spring.ValueHandler.ValueContext;
 import com.alibaba.jbox.utils.AopTargetUtils;
+import com.alibaba.jbox.utils.JboxUtils;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.taobao.diamond.client.Diamond;
 import com.taobao.diamond.manager.ManagerListener;
 import com.taobao.diamond.manager.ManagerListenerAdapter;
+import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
+import org.springframework.beans.factory.config.PlaceholderConfigurerSupport;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.env.ConfigurablePropertyResolver;
-import org.springframework.core.io.Resource;
 import org.springframework.util.ReflectionUtils;
-import org.yaml.snakeyaml.Yaml;
+
+import static com.alibaba.jbox.utils.JboxUtils.convertTypeValue;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.4
- *          - 1.0: a simple vitamin faced use @{code org.springframework.beans.factory.config
- *          .PlaceholderConfigurerSupport};
- *          - 1.1: replace use {@code org.springframework.context.support.PropertySourcesPlaceholderConfigurer};
- *          - 1.2: change vitamin to Diamond;
- *          - 1.3: load yaml file as a config file format;
- *          - 1.4: add {@code com.alibaba.jbox.spring.FieldChangedCallback} when Field value changed.
+ * - 1.0: a simple vitamin faced use {@link PlaceholderConfigurerSupport};
+ * - 1.1: replace use {@link PropertySourcesPlaceholderConfigurer}, 从3.1版本起Spring其装配.
+ * - 1.2: use {@link Diamond} for replace Vitamin;
+ * - 1.3 @deprecated : load yaml file as a config file format;
+ * - 1.4: add {@link ValueHandler} when Field value changed.
  * @since 2017/4/5 上午10:35.
- * - 从 spring 3.1 起建议使用'PropertySourcesPlaceholderConfigurer'装配,
- * - 因为它能够基于Environment及其属性源来解析占位符.
  */
-public class DiamondPropertySourcesPlaceholder
-    extends PropertySourcesPlaceholderConfigurer
-    implements InitializingBean, DisposableBean, ApplicationContextAware {
+public class DiamondPropertySourcesPlaceholder extends PropertySourcesPlaceholderConfigurer
+    implements InitializingBean, DisposableBean {
 
-    private static final Logger logger = LoggerFactory.getLogger(DiamondPropertySourcesPlaceholder.class);
+    private static final String SEP_LINE = "\n";
 
-    private static final ConcurrentMap<Class, Class> PRIMITIVE_TYPES = new ConcurrentHashMap<Class, Class>() {
-        private static final long serialVersionUID = -4085587013134835589L;
+    private static final String SEP_KV = ":";
 
-        {
-            put(byte.class, Byte.class);
-            put(Byte.class, Byte.class);
-            put(short.class, Short.class);
-            put(Short.class, Short.class);
-            put(int.class, Integer.class);
-            put(Integer.class, Integer.class);
-            put(long.class, Long.class);
-            put(Long.class, Long.class);
-            put(float.class, Float.class);
-            put(Float.class, Float.class);
-            put(double.class, Double.class);
-            put(Double.class, Double.class);
-            put(boolean.class, Boolean.class);
-            put(Boolean.class, Boolean.class);
-        }
-    };
+    private static Multimap<String, Pair<Field, Object>> configKey2PairMap = HashMultimap.create();
 
-    private static Properties wholeProperties = new Properties();
+    private static Properties totalProperties = new Properties();
 
-    private static Set<Object> beanNotInSpring = new HashSet<Object>();
+    private static Set<Object> externalBeans = new HashSet<>();
 
     private static ConfigurableListableBeanFactory beanFactory;
 
-    private static ApplicationContext applicationContext;
+    private Map<String, String> initDiamondConfig;
 
     private ManagerListener listener;
 
-    private Map<String, String> diamondPropertiesTmp = new HashMap<String, String>();
-
-    private Multimap<String, Pair<Field, Object>> beanAnnotatedByValue = HashMultimap.create();
-
-    private List<Resource> yamlResources = new ArrayList<Resource>();
-
     /*  -------------------------------------   */
-    /*  ----------- Config Data -------------   */
+    /*  ----------- Diamond Config ----------   */
     /*  -------------------------------------   */
-    private boolean needDiamond = true;
+    @Setter
+    private boolean needDiamond = false;
 
+    @Setter
     private String dataId = "properties";
 
-    private String group = "config";
+    @Setter
+    private String groupId = "config";
 
+    @Setter
     private long timeoutMs = 5 * 1000;
 
-    public void setNeedDiamond(boolean needDiamond) {
-        this.needDiamond = needDiamond;
-    }
-
-    public void setDataId(String dataId) {
-        if (!Strings.isNullOrEmpty(dataId)) {
-            this.dataId = dataId;
-        }
-    }
-
-    public void setGroup(String group) {
-        if (!Strings.isNullOrEmpty(group)) {
-            this.group = group;
-        }
-    }
-
-    public void setTimeoutMs(long timeoutMs) {
-        this.timeoutMs = timeoutMs;
-    }
+    /*  -------------------------------------   */
+    /*  --------------- APIs ----------------   */
 
     /*  -------------------------------------   */
-    /*  ----------- Public APIs -------------   */
-    /*  -------------------------------------   */
-    public static Properties getProperties() {
-        return wholeProperties;
-    }
-
-    public static Object getProperty(Object key) {
-        return wholeProperties.get(key);
+    public static BeanFactory getBeanFactory() {
+        return beanFactory;
     }
 
     public static Object getSpringBean(String id) {
         return beanFactory.getBean(id);
     }
 
-    public static Object getSpringBean(Class<?> type) {
+    public static <T> T getSpringBean(Class<T> type) {
         return beanFactory.getBean(type);
     }
 
-    public static BeanFactory getBeanFactory() {
-        return beanFactory;
+    public static void registerExternalBean(Object bean) {
+        externalBeans.add(bean);
     }
 
-    public static ApplicationContext getApplicationContext() {
-        return applicationContext;
+    public static Properties getProperties() {
+        return totalProperties;
     }
 
-    public static void registerSpringOuterBean(Object bean) {
-        beanNotInSpring.add(bean);
-    }
-
-    // 过滤 & 暂存 yaml 资源
-    @Override
-    public void setLocation(Resource location) {
-        if (!location.getFilename().endsWith(".yaml")) {
-            super.setLocation(location);
-        } else {
-            this.yamlResources.add(location);
-        }
-    }
-
-    @Override
-    public void setLocations(Resource... locations) {
-        int length = 0;
-        Resource[] newLocations = new Resource[locations.length];
-        for (Resource location : locations) {
-            if (location.getFilename().endsWith(".yaml")) {
-                this.yamlResources.add(location);
-            } else {
-                newLocations[length++] = location;
-            }
-        }
-
-        super.setLocations(Arrays.copyOf(newLocations, length));
+    public static Object getProperty(Object key) {
+        return totalProperties.get(key);
     }
 
     @Override
     public void afterPropertiesSet() throws Exception {
         if (this.needDiamond) {
-            String initConfig = Diamond.getConfig(this.dataId, this.group, this.timeoutMs);
-            if (!Strings.isNullOrEmpty(initConfig)) {
-                initDiamondProperties(JSONObject.parseObject(initConfig));
-            }
-            Diamond.addListener(this.dataId, this.group, (this.listener = new IgnoreSameConfigListener(initConfig)));
-        }
-    }
+            Preconditions.checkState(!Strings.isNullOrEmpty(this.groupId), "diamond 'groupId' can not be empty.");
+            Preconditions.checkState(!Strings.isNullOrEmpty(this.dataId), "diamond 'dataId' can not be empty.");
 
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        DiamondPropertySourcesPlaceholder.applicationContext = applicationContext;
+            String config = Diamond.getConfig(this.dataId, this.groupId, this.timeoutMs);
+            if (!Strings.isNullOrEmpty(config)) {
+                initDiamondConfig = parseConfig(config);
+            }
+            Diamond.addListener(this.dataId, this.groupId, this.listener = new IgnoreSameConfigListener(config));
+        }
     }
 
     private class IgnoreSameConfigListener extends ManagerListenerAdapter {
 
-        private volatile String lastContent;
+        private volatile String preConfig;
 
-        public IgnoreSameConfigListener(String lastContent) {
-            this.lastContent = lastContent;
+        IgnoreSameConfigListener(String config) {
+            this.preConfig = config;
         }
 
         @Override
-        public void receiveConfigInfo(String configInfo) {
-            logger.info("received config: {}", configInfo);
-            if (!StringUtils.equals(lastContent, configInfo)) {
-                lastContent = configInfo;
-                JSONObject propertyJson = JSONObject.parseObject(configInfo);
-                handleDataChanged(propertyJson);
+        public void receiveConfigInfo(String config) {
+            try {
+                Map<String, String> configMap = parseConfig(config);
+                SpringLoggerHelper.info("receive diamond config data: {}", configMap);
+                if (!StringUtils.equals(preConfig, config)) {
+                    // handle current config  changed
+                    handleDiamondChanged(configMap);
+
+                    // save as pre config
+                    preConfig = config;
+                }
+            } catch (Exception e) {
+                SpringLoggerHelper.error("handle diamond config data: {{}} error", config, e);
             }
-        }
-    }
-
-    private void initDiamondProperties(JSONObject propertyJson) {
-        for (String propertyKey : propertyJson.keySet()) {
-            String propertyValue = propertyJson.getString(propertyKey);
-
-            diamondPropertiesTmp.put(propertyKey, propertyValue);
         }
     }
 
     @Override
     protected void processProperties(ConfigurableListableBeanFactory beanFactoryToProcess,
                                      ConfigurablePropertyResolver propertyResolver) throws BeansException {
-        // store BeanFactory temporary
         beanFactory = beanFactoryToProcess;
         super.processProperties(beanFactoryToProcess, propertyResolver);
     }
 
     @Override
     protected Properties mergeProperties() throws IOException {
-        Properties fileProperties = super.mergeProperties();
-        Properties yamlProperties = this.loadYamlResources();
-
-        // save 3 个数据源:
-        // 1. .properties & .xml
-        saveProperties(fileProperties);
-        // 2. .yaml
-        saveProperties(yamlProperties);
-        // 3. diamond
-        saveProperties(this.diamondPropertiesTmp);
-
-        fileProperties.putAll(yamlProperties);
-        fileProperties.putAll(this.diamondPropertiesTmp);
-
-        return fileProperties;
-    }
-
-    private Properties loadYamlResources() throws IOException {
-        Properties properties = new Properties();
-        for (Resource yamlResource : this.yamlResources) {
-            /*
-             * TODO: attention -- not support raw array yaml config.
-             */
-            Map<?, ?> yamlMap = (Map<?, ?>)new Yaml().load(yamlResource.getInputStream());
-
-            properties.putAll(yamlMap);
+        Properties mergedProperties = super.mergeProperties();
+        if (!isNullOrEmpty(initDiamondConfig)) {
+            mergedProperties.putAll(initDiamondConfig);
         }
-
-        return properties;
-    }
-
-    private void saveProperties(Map<?, ?> map) {
-        if (!isNullOrEmpty(map)) {
-            wholeProperties.putAll(map);
-            // map.forEach(wholeProperties::put);
-        }
+        totalProperties.putAll(mergedProperties);
+        return mergedProperties;
     }
 
     /*  -------------------------------------   */
     /*  ------- Handle Data Changes ---------   */
     /*  -------------------------------------   */
 
-    private String convertEntryValue(Object value) {
-        String stringValue;
-        if (value instanceof String) {
-            stringValue = (String)value;
-        } else {
-            stringValue = String.valueOf(value);
-        }
-
-        return stringValue;
-    }
-
-    private void handleDataChanged(JSONObject currentJsonConfig) {
+    private void handleDiamondChanged(Map<String, String> config) throws Exception {
         initBeansMap(beanFactory);
-        for (Map.Entry<String, Object> entry : currentJsonConfig.entrySet()) {
 
-            String key = entry.getKey();
-            String currentValue = convertEntryValue(entry.getValue());
+        Multimap<Object, Pair<Field, Object>> bean2ChangedFieldMap = HashMultimap.create();
 
-            // make sure is changed
-            if (!currentValue.equals(wholeProperties.get(key))) {
-                wholeProperties.put(key, currentValue);
+        for (Map.Entry<String, String> entry : config.entrySet()) {
+            String configKey = entry.getKey();
+            String configValue = entry.getValue();
 
-                Collection<Pair<Field, Object>> fieldWithBeans = this.beanAnnotatedByValue.get(key);
-                List<Pair<Field, Object>> fieldWithValues = new ArrayList<Pair<Field, Object>>(fieldWithBeans.size());
-                if (!isNullOrEmpty(fieldWithBeans)) {
-                    for (Pair<Field, Object> pair : fieldWithBeans) {
-                        Field field = pair.getLeft();
-                        Object beanInstance = pair.getRight();
-                        Object fieldValue = convertTypeValue(currentValue, field.getType(), field.getGenericType());
-                        fieldWithValues.add(Pair.of(field, fieldValue));
-
-                        try {
-                            field.set(beanInstance, fieldValue);
-                        } catch (IllegalAccessException ignored) {
-                            // 不可能发生
-                        }
-
-                        logger.warn("class: '{}' instance field: [{}] value is change to [{}]",
-                            beanInstance.getClass().getName(),
-                            field.getName(), fieldValue);
-                    }
-                    notifyCallback(fieldWithValues, fieldWithBeans.iterator().next().getRight());
-                } else {
-                    logger.error("propertyKey: [{}] have not found relation bean, value: [{}]", key, currentValue);
-                }
-            } else {
-                logger.warn("key: [{}]'s value is equals current value [{}], don't need update", key, currentValue);
+            // make sure is changed.
+            if (configValue.equals(totalProperties.get(configKey))) {
+                SpringLoggerHelper.warn("passed: config [{}]'s value [{}] is equals current value '{}'.",
+                    configKey,
+                    configValue,
+                    totalProperties.get(configKey));
+                continue;
             }
+
+            // make sure has relative bean.
+            Collection<Pair<Field, Object>> fieldWithBeans = configKey2PairMap.get(configKey);
+            if (isNullOrEmpty(fieldWithBeans)) {
+                SpringLoggerHelper.error("passed: config [{}] have none relative bean.", configKey);
+                continue;
+            }
+
+            // update field changed.
+            for (Pair<Field, Object> pair : fieldWithBeans) {
+                Field field = pair.getLeft();
+                Object value = convertTypeValue(configValue, field.getType(), field.getGenericType());
+                Object bean = pair.getRight();
+                // set field value
+                field.set(bean, value);
+                SpringLoggerHelper.warn("success: class '{}' field: '{}' value is update to [{}]",
+                    bean.getClass().getName(),
+                    field.getName(), value);
+
+                // since 1.4 : add changed field, after notify field changed
+                bean2ChangedFieldMap.put(bean, Pair.of(field, value));
+            }
+
+            // update saved properties.
+            totalProperties.put(configKey, configValue);
         }
+
+        notifyChangedCallBack(bean2ChangedFieldMap.asMap());
     }
 
-    // @since 1.4
-    private void notifyCallback(List<Pair<Field, Object>> fieldWithValues, Object target) {
-        if (target instanceof FieldChangedCallback) {
-            FieldChangedCallback callback = (FieldChangedCallback)target;
-            AsyncRunnable runnable = new AsyncRunnable() {
-                @Override
-                public void execute() {
-                    callback.receiveConfigInfo(fieldWithValues);
+    private void notifyChangedCallBack(Map<Object, Collection<Pair<Field, Object>>> bean2ChangedFieldMap) {
+        bean2ChangedFieldMap.forEach((bean, pairs) -> {
+            if (bean instanceof ValueHandler) {
+                ValueHandler handler = (ValueHandler)bean;
+
+                List<Field> changedFields = new ArrayList<>(pairs.size());
+                List<Object> changedValues = new ArrayList<>(pairs.size());
+                for (Pair<Field, Object> pair : pairs) {
+                    changedFields.add(pair.getLeft());
+                    changedValues.add(pair.getRight());
                 }
 
-                @Override
-                public String taskInfo() {
-                    return this.getClass().getName() + " wait callback " + fieldWithValues;
+                ValueContext context = new ValueContext(changedFields, changedValues);
+                AsyncRunnable runnable = new AsyncRunnable() {
+                    @Override
+                    public void execute() {
+                        handler.handle(context);
+                        SpringLoggerHelper.warn("ValueHandler: '{}' has been triggered.",
+                            bean.getClass().getName());
+                    }
+
+                    @Override
+                    public String taskInfo() {
+                        return MessageFormatter.format("{} waiting trigger class: {}'s fields:{} changed.",
+                            new Object[] {
+                                this.getClass().getName(),
+                                bean.getClass().getName(),
+                                context.getChangeFields().stream().map(Field::getName).collect(Collectors.toList())
+                            }).getMessage();
+                    }
+                };
+
+                if (handler.executor() == null) {
+                    runnable.execute();
+                } else {
+                    handler.executor().execute(runnable);
                 }
-            };
-            if (callback.getExecutor() == null) {
-                runnable.run();
-            } else {
-                callback.getExecutor().execute(runnable);
             }
-        }
+        });
     }
 
     private void initBeansMap(ConfigurableListableBeanFactory beanFactory) {
-        if (beanAnnotatedByValue.isEmpty()) {
-            try {
-                // 将被Spring托管的Bean放入beanAnnotatedByValue管理
-                String[] beanNames = beanFactory.getBeanDefinitionNames();
-                for (String beanName : beanNames) {
-                    Object bean = beanFactory.getBean(beanName);
-                    initBeanMap(AopTargetUtils.getAopTarget(bean));
-                }
+        if (configKey2PairMap.isEmpty()) {
+            // register spring container bean
+            String[] beanNames = beanFactory.getBeanDefinitionNames();
+            for (String beanName : beanNames) {
+                Object bean = beanFactory.getBean(beanName);
+                initBeanMap(AopTargetUtils.getAopTarget(bean));
+            }
 
-                // 将Spring外的Bean也放入beanAnnotatedByValue管理
-                for (Object bean : beanNotInSpring) {
-                    initBeanMap(AopTargetUtils.getAopTarget(bean));
-                }
-            } catch (Exception e) {
-                logger.error("initBeansMap error", e);
+            // register spring external bean
+            for (Object bean : externalBeans) {
+                initBeanMap(AopTargetUtils.getAopTarget(bean));
             }
         }
     }
 
-    private void initBeanMap(Object beanInstance) {
-        Field[] fields = beanInstance.getClass().getDeclaredFields();
-        for (Field field : fields) {
-            if (field.isAnnotationPresent(Value.class)) {
-                String valueMapKey = getValueAnnotationValue(field);
-                Pair<Field, Object> pair = Pair.of(field, beanInstance);
+    private void initBeanMap(Object bean) {
+        if (bean != null) {
+            List<Field> fields = FieldUtils.getFieldsListWithAnnotation(bean.getClass(), Value.class);
+            for (Field field : fields) {
+                String annotationConfigKey = getValueAnnotationValue(field);
+                Pair<Field, Object> pair = Pair.of(field, bean);
 
-                beanAnnotatedByValue.put(valueMapKey, pair);
+                configKey2PairMap.put(annotationConfigKey, pair);
             }
         }
     }
 
     private String getValueAnnotationValue(Field field) {
         ReflectionUtils.makeAccessible(field);
-
         String value = field.getAnnotation(Value.class).value();
-        if (value.startsWith("${") && value.endsWith("}")) {
-            return value.substring("${".length(), value.length() - 1);
-        } else {
-            throw new PropertySourcesPlaceholderException(
-                "@Value annotation need \"${[config key]}\" config in the value() property");
-        }
-    }
-
-    public static <T> Object convertTypeValue(String value, Class<T> type, Type genericType) {
-        Object instance = null;
-        Class<?> primitiveType = PRIMITIVE_TYPES.get(type);
-        if (primitiveType != null) {
-            try {
-                instance = primitiveType.getMethod("valueOf", String.class).invoke(null, value);
-            } catch (IllegalAccessException ignored) {
-            } catch (InvocationTargetException ignored) {
-            } catch (NoSuchMethodException ignored) {
-            }
-        } else if (type == Character.class || type == char.class) {
-            instance = value.charAt(0);
-        } else if (type == String.class) {
-            instance = value;
-        } else {
-            instance = JSON.parseObject(value, genericType);
-        }
-
-        return instance;
-    }
-
-    private boolean isNullOrEmpty(Collection collection) {
-        return collection == null || collection.isEmpty();
-    }
-
-    private boolean isNullOrEmpty(Map map) {
-        return map == null || map.isEmpty();
+        value = value.trim();
+        Preconditions.checkState(!Strings.isNullOrEmpty(value), "@value() config can not be empty.");
+        return JboxUtils.trimPrefixAndSuffix(value, "${", "}");
     }
 
     @Override
     public void destroy() throws Exception {
         if (this.listener != null) {
-            Diamond.removeListener(this.dataId, this.group, this.listener);
+            Diamond.removeListener(this.dataId, this.groupId, this.listener);
         }
+    }
+
+    /* ------ helpers ----- */
+    private Map<String, String> parseConfig(String config) throws IOException {
+        List<String> lines = Splitter.on(SEP_LINE).trimResults().omitEmptyStrings().splitToList(config);
+        Map<String, String> configMap = new HashMap<>();
+        if (!isNullOrEmpty(lines)) {
+            for (String line : lines) {
+                List<String> kv = Splitter.on(SEP_KV).trimResults().omitEmptyStrings().splitToList(
+                    line);
+
+                if (kv.size() != 2) {
+                    String msg = MessageFormatter.arrayFormat(
+                        "Diamond [{}:{}] config [{}] is not standard 'key:value' property format.",
+                        new Object[] {this.groupId, this.dataId, line}).getMessage();
+                    throw new PropertySourcesPlaceholderException(msg);
+                }
+
+                configMap.put(kv.get(0), kv.get(1));
+            }
+        }
+
+        return configMap;
+    }
+
+    private static boolean isNullOrEmpty(Collection collection) {
+        return collection == null || collection.isEmpty();
+    }
+
+    private static boolean isNullOrEmpty(Map map) {
+        return map == null || map.isEmpty();
     }
 
     private static class PropertySourcesPlaceholderException extends RuntimeException {

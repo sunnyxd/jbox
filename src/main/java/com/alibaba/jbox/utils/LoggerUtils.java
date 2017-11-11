@@ -13,10 +13,14 @@ class LoggerUtils {
     private static final Logger logger = LoggerFactory.getLogger("com.alibaba.jbox");
 
     static void info(String format, Object... arguments) {
-        logger.info(format, arguments);
+        if (logger.isInfoEnabled()) {
+            logger.info(format, arguments);
+        }
     }
 
     static void error(String format, Object... arguments) {
-        logger.error(format, arguments);
+        if (logger.isErrorEnabled()) {
+            logger.error(format, arguments);
+        }
     }
 }

@@ -1,4 +1,4 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,17 +10,18 @@ import java.util.Map.Entry;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
-import com.alibaba.jbox.trace.AbstractTLogConfig.ELConfig;
+import com.alibaba.jbox.trace.TraceException;
+import com.alibaba.jbox.trace.tlog.AbstractTLogConfig.ELConfig;
 import com.alibaba.jbox.utils.JboxUtils;
 
 import com.google.common.base.Splitter;
 
-import static com.alibaba.jbox.trace.ELResolveHelpers.replaceRefToRealString;
-import static com.alibaba.jbox.trace.TraceConstants.DEF_PREFIX;
-import static com.alibaba.jbox.trace.TraceConstants.DEF_SUFFIX;
-import static com.alibaba.jbox.trace.TraceConstants.REF_PREFIX;
-import static com.alibaba.jbox.trace.TraceConstants.REF_SUFFIX;
-import static com.alibaba.jbox.trace.TraceConstants.USER_DEF;
+import static com.alibaba.jbox.trace.tlog.ELResolveHelpers.replaceRefToRealString;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.DEF_PREFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.DEF_SUFFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.REF_PREFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.REF_SUFFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.USER_DEF;
 
 /**
  * @author jifang.zjf@alibaba-inc.com

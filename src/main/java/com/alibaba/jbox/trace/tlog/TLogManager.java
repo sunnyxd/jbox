@@ -1,4 +1,4 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,6 +13,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.alibaba.jbox.executor.AsyncRunnable;
 import com.alibaba.jbox.executor.ExecutorManager;
 import com.alibaba.jbox.executor.policy.DiscardPolicy;
+import com.alibaba.jbox.trace.TraceException;
 import com.alibaba.jbox.utils.DateUtils;
 
 import com.google.common.base.Function;
@@ -22,9 +23,9 @@ import org.slf4j.Logger;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.InitializingBean;
 
-import static com.alibaba.jbox.trace.LogBackHelper.initTLogger;
-import static com.alibaba.jbox.trace.TraceConstants.SEPARATOR;
-import static com.alibaba.jbox.trace.TraceConstants.TLOG_EXECUTOR_GROUP;
+import static com.alibaba.jbox.trace.tlog.LogBackHelper.initTLogger;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.SEPARATOR;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.TLOG_EXECUTOR_GROUP;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -65,7 +66,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
         }
     }
 
-    void postLogEvent(LogEvent event) {
+    public void postLogEvent(LogEvent event) {
         executor.submit(new LogEventParser(event));
     }
 

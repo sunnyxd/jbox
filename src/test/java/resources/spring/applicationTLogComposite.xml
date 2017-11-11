@@ -13,7 +13,7 @@
 
     <bean id="ipoTraceAspect" class="com.alibaba.jbox.trace.TraceAspect">
         <property name="tLogManager">
-            <bean class="com.alibaba.jbox.trace.TLogManager">
+            <bean class="com.alibaba.jbox.trace.tlog.TLogManager">
                 <property name="charset" value="UTF-8"/>
                 <property name="maxHistory" value="1"/>
                 <property name="minPoolSize" value="5"/>

@@ -1,10 +1,10 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.nio.charset.Charset;
 import java.util.List;
 
 import com.alibaba.jbox.script.ScriptExecutor;
-import com.alibaba.jbox.trace.TLogFilter.TLogContext;
+import com.alibaba.jbox.trace.tlog.TLogFilter.TLogContext;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
@@ -20,8 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static ch.qos.logback.core.spi.FilterReply.DENY;
-import static com.alibaba.jbox.trace.TraceConstants.LOGGER_FILE_PATTERN;
-import static com.alibaba.jbox.trace.TraceConstants.tracer;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.LOGGER_FILE_PATTERN;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
@@ -29,6 +28,8 @@ import static com.alibaba.jbox.trace.TraceConstants.tracer;
  * @since 2017/9/23 08:15:00.
  */
 class LogBackHelper {
+
+    private static final Logger tracer = LoggerFactory.getLogger("com.alibaba.jbox.trace");
 
     static Logger initTLogger(String loggerName, String filePath, String charset, int maxHistory, long totalSizeCapKb,
                               List<TLogFilter> filters) {

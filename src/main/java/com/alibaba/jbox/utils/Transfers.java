@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * @author jifang
+ * @author jifang.zjf@alibaba-inc.com
  * @since 2017/2/23 下午3:50.
  */
 public class Transfers {
@@ -24,6 +24,6 @@ public class Transfers {
             }
         }
 
-        return (List<Output>) outputs;
+        return (List<Output>)outputs;
     }
 }

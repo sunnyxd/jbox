@@ -28,7 +28,7 @@ public interface AsyncRunnable extends java.lang.Runnable, ExecutorLoggerInner {
      *
      * @param context : Executor runtime context;
      */
-    default void beforeExecute(final Context context) { }
+    default void beforeExecute(final AsyncContext context) { }
 
     /**
      * implements like {@code Runnable.run()}
@@ -40,7 +40,7 @@ public interface AsyncRunnable extends java.lang.Runnable, ExecutorLoggerInner {
      *
      * @param context : Executor runtime context;
      */
-    default void afterExecute(final Context context) { }
+    default void afterExecute(final AsyncContext context) { }
 
     /**
      * method invoked after {@code this.execute()} throws {@code Exception}.
@@ -48,7 +48,7 @@ public interface AsyncRunnable extends java.lang.Runnable, ExecutorLoggerInner {
      * @param t       : {@code execute()} invoke threw Exception;
      * @param context : Executor runtime context;
      */
-    default void afterThrowing(Throwable t, final Context context) { }
+    default void afterThrowing(Throwable t, final AsyncContext context) { }
 
     /**
      * detail info of the task need to invoke.
@@ -64,6 +64,6 @@ public interface AsyncRunnable extends java.lang.Runnable, ExecutorLoggerInner {
      */
     @Override
     default void run() {
-        throw new ExecutorException("you should not use this method!!!");
+        execute();
     }
 }

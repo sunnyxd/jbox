@@ -1,19 +1,25 @@
 package com.alibaba.jbox.spring;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.ReflectionUtils;
 
+import static com.alibaba.jbox.utils.JboxUtils.convertTypeValue;
 import static com.alibaba.jbox.utils.JboxUtils.trimPrefixAndSuffix;
 
 /**
- * 使非Spring托管的Bean可以使用`@Autowired`、`@Resource`、`@Value`注解
- * 同时`@Value`注解可以享受与普通SpringBean同样的特权, 即: 可以使用基于Diamond的配置, 动态生效
+ * 使得非Spring托管的Bean也可以使用{@link Autowired}、{@link Qualifier}、{@link Value}、{@link Resource}注解,
+ * 并使{@code Value}可动态生效.
  *
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0
@@ -21,40 +27,66 @@ import static com.alibaba.jbox.utils.JboxUtils.trimPrefixAndSuffix;
  */
 public abstract class SpringAutowiredAdaptor {
 
-    public void initAutowired() {
-        Field[] fields = this.getClass().getDeclaredFields();
-        for (Field field : fields) {
-            if (field.isAnnotationPresent(Autowired.class)
-                || field.isAnnotationPresent(Resource.class)
-                || field.isAnnotationPresent(Value.class)) {
+    private AtomicBoolean init = new AtomicBoolean(false);
 
-                Value value;
-                Qualifier qualifier;
+    @PostConstruct
+    protected void initAutowired() {
+        if (!init.compareAndSet(false, true)) {
+            return;
+        }
 
-                Object beanValue;
-                if ((value = field.getAnnotation(Value.class)) != null) {
-                    // 将该对象以"Spring外的Bean"的方式注册到Placeholder管理器中
-                    // 以使其具备动态修改@Value属性的能力
-                    DiamondPropertySourcesPlaceholder.registerSpringOuterBean(this);
+        for (Field field : FieldUtils.getAllFieldsList(this.getClass())) {
+            ReflectionUtils.makeAccessible(field);
 
-                    Object property = DiamondPropertySourcesPlaceholder.getProperty(
-                        trimPrefixAndSuffix(value.value(), "${", "}"));
-                    if (property == null) {
-                        throw new RuntimeException("could not found the config " + value.value() + " value");
-                    }
-                    beanValue = DiamondPropertySourcesPlaceholder.convertTypeValue((String)property, field.getType(),
-                        field.getGenericType());
-                } else if ((qualifier = field.getAnnotation(Qualifier.class)) != null) {
-                    beanValue = DiamondPropertySourcesPlaceholder.getSpringBean(qualifier.value());
+            Value value;
+            Qualifier qualifier;
+            Resource resource;
+            if ((value = field.getAnnotation(Value.class)) != null) {
+                String valStr = trimPrefixAndSuffix(value.value(), "${", "}");
+                Object property = DiamondPropertySourcesPlaceholder.getProperty(valStr);
+                Preconditions.checkState(property != null,
+                    "could not found the config '" + value.value() + "' relative property");
+
+                Object propertyValue = convertTypeValue(String.valueOf(property), field.getType(),
+                    field.getGenericType());
+                // set field
+                ReflectionUtils.setField(field, this, propertyValue);
+                // register external container, usage dynamic setter
+                DiamondPropertySourcesPlaceholder.registerExternalBean(this);
+                // logger
+                SpringLoggerHelper.warn("success: class '{}' field: '{}' value is autowired to [{}]",
+                    this.getClass().getName(),
+                    field.getName(), propertyValue);
+            } else if (field.isAnnotationPresent(Autowired.class)) {
+                Object propertyValue;
+                if ((qualifier = field.getAnnotation(Qualifier.class)) != null) {
+                    propertyValue = DiamondPropertySourcesPlaceholder.getSpringBean(qualifier.value());
                 } else {
-                    beanValue = DiamondPropertySourcesPlaceholder.getSpringBean(field.getType());
+                    propertyValue = DiamondPropertySourcesPlaceholder.getSpringBean(field.getType());
                 }
 
-                ReflectionUtils.makeAccessible(field);
-                try {
-                    field.set(this, beanValue);
-                } catch (IllegalAccessException ignored) {
+                ReflectionUtils.setField(field, this, propertyValue);
+
+                // logger
+                SpringLoggerHelper.warn("success: class '{}' field: '{}' value is autowired to [{}]",
+                    this.getClass().getName(),
+                    field.getName(), propertyValue);
+            } else if ((resource = field.getAnnotation(Resource.class)) != null) {
+                String resourceName = resource.name();
+                Object propertyValue;
+
+                if (Strings.isNullOrEmpty(resourceName)) {
+                    propertyValue = DiamondPropertySourcesPlaceholder.getSpringBean(field.getType());
+                } else {
+                    propertyValue = DiamondPropertySourcesPlaceholder.getSpringBean(resourceName);
                 }
+
+                ReflectionUtils.setField(field, this, propertyValue);
+
+                // logger
+                SpringLoggerHelper.warn("success: class '{}' field: '{}' value is autowired to [{}]",
+                    this.getClass().getName(),
+                    field.getName(), propertyValue);
             }
         }
     }

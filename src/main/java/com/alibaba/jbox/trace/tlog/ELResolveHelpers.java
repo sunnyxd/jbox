@@ -1,11 +1,12 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.util.Map;
 
+import com.alibaba.jbox.trace.TraceException;
 import com.alibaba.jbox.utils.JboxUtils;
 
-import static com.alibaba.jbox.trace.TraceConstants.DEF_PREFIX;
-import static com.alibaba.jbox.trace.TraceConstants.DEF_SUFFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.DEF_PREFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.DEF_SUFFIX;
 
 /**
  * @author jifang.zjf@alibaba-inc.com

@@ -1,4 +1,4 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,16 +27,16 @@ import com.google.common.base.Strings;
 import com.google.common.io.CharStreams;
 import org.springframework.core.io.Resource;
 
-import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_MAX_HISTORY;
-import static com.alibaba.jbox.trace.TraceConstants.DEFAULT_RUNNABLE_Q_SIZE;
-import static com.alibaba.jbox.trace.TraceConstants.GROOVY_FILE_SUFFIX;
-import static com.alibaba.jbox.trace.TraceConstants.JSON_FILE_SUFFIX;
-import static com.alibaba.jbox.trace.TraceConstants.LOG_SUFFIX;
-import static com.alibaba.jbox.trace.TraceConstants.MAX_THREAD_POOL_SIZE;
-import static com.alibaba.jbox.trace.TraceConstants.MIN_THREAD_POOL_SIZE;
-import static com.alibaba.jbox.trace.TraceConstants.PLACEHOLDER;
-import static com.alibaba.jbox.trace.TraceConstants.UTF_8;
-import static com.alibaba.jbox.trace.TraceConstants.XML_FILE_SUFFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.DEFAULT_MAX_HISTORY;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.DEFAULT_RUNNABLE_Q_SIZE;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.GROOVY_FILE_SUFFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.JSON_FILE_SUFFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.LOG_SUFFIX;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.MAX_THREAD_POOL_SIZE;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.MIN_THREAD_POOL_SIZE;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.PLACEHOLDER;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.UTF_8;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.XML_FILE_SUFFIX;
 
 /**
  * TLogManager统一配置

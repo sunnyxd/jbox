@@ -1,7 +1,9 @@
 package com.alibaba.jbox.utils;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -9,6 +11,8 @@ import java.net.SocketException;
 import java.util.Enumeration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import com.alibaba.fastjson.JSON;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -234,5 +238,46 @@ public class JboxUtils {
             name = name.substring(index + 1);
         }
         return name;
+    }
+
+    /* ------- #6 --------- convert String to Class Object -------------------- */
+
+    private static final ConcurrentMap<Class, Class> primitiveTypes = new ConcurrentHashMap<>();
+
+    static {
+        primitiveTypes.put(byte.class, Byte.class);
+        primitiveTypes.put(Byte.class, Byte.class);
+        primitiveTypes.put(short.class, Short.class);
+        primitiveTypes.put(Short.class, Short.class);
+        primitiveTypes.put(int.class, Integer.class);
+        primitiveTypes.put(Integer.class, Integer.class);
+        primitiveTypes.put(long.class, Long.class);
+        primitiveTypes.put(Long.class, Long.class);
+        primitiveTypes.put(float.class, Float.class);
+        primitiveTypes.put(Float.class, Float.class);
+        primitiveTypes.put(double.class, Double.class);
+        primitiveTypes.put(Double.class, Double.class);
+        primitiveTypes.put(boolean.class, Boolean.class);
+        primitiveTypes.put(Boolean.class, Boolean.class);
+    }
+
+    public static <T> Object convertTypeValue(String strValue, Class<T> type, Type genericType) {
+        Object instance;
+        Class<?> primitiveType = primitiveTypes.get(type);
+        if (primitiveType != null) {
+            try {
+                instance = primitiveType.getMethod("valueOf", String.class).invoke(null, strValue);
+            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        } else if (type == Character.class || type == char.class) {
+            instance = strValue.charAt(0);
+        } else if (type == String.class) {
+            instance = strValue;
+        } else {
+            instance = JSON.parseObject(strValue, genericType);
+        }
+
+        return instance;
     }
 }

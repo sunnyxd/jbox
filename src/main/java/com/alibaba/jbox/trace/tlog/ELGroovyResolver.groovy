@@ -1,4 +1,4 @@
-package com.alibaba.jbox.trace
+package com.alibaba.jbox.trace.tlog
 
 /**
  * @author jifang.zjf@alibaba-inc.com

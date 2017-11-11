@@ -1,4 +1,4 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -13,10 +13,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static com.alibaba.jbox.trace.TraceConstants.KEY_ARGS;
-import static com.alibaba.jbox.trace.TraceConstants.KEY_PH;
-import static com.alibaba.jbox.trace.TraceConstants.KEY_PLACEHOLDER;
-import static com.alibaba.jbox.trace.TraceConstants.KEY_RESULT;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.KEY_ARGS;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.KEY_PH;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.KEY_PLACEHOLDER;
+import static com.alibaba.jbox.trace.tlog.TLogConstants.KEY_RESULT;
 
 /**
  * @author jifang.zjf@alibaba-inc.com

@@ -1,11 +1,12 @@
-package com.alibaba.jbox.trace
+package com.alibaba.jbox.trace.tlog
 
+import com.alibaba.jbox.trace.TraceException
 import com.google.common.base.Strings
 import groovy.util.slurpersupport.GPathResult
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import static com.alibaba.jbox.trace.ELResolveHelpers.replaceRefToRealString
+import static ELResolveHelpers.replaceRefToRealString
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.0

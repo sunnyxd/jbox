@@ -1,4 +1,4 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.util.Collections;
 import java.util.HashMap;

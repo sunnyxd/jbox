@@ -1,4 +1,4 @@
-package com.alibaba.jbox.trace;
+package com.alibaba.jbox.trace.tlog;
 
 import java.lang.reflect.Method;
 
@@ -14,7 +14,7 @@ import lombok.Data;
  * @since 2017/9/22 15:57:00.
  */
 @Data
-class LogEvent {
+public class LogEvent {
 
     /**
      * obtain from context
@@ -46,7 +46,7 @@ class LogEvent {
 
     private Throwable exception;
 
-    void init() {
+    public void init() {
         this.serverIp = JboxUtils.getServerIp();
         this.traceId = EagleEye.getTraceId();
         this.clientName = RequestCtxUtil.getAppNameOfClient();

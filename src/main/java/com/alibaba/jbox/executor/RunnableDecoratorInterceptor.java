@@ -48,7 +48,7 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
             Object rpcContext = EagleEye.getRpcContext();
             Object firstArg = args[0];
             FlightRecorder recorder = recorders.computeIfAbsent(group, (k) -> new FlightRecorder());
-            Context context = new Context(Thread.currentThread(), group);
+            AsyncContext context = new AsyncContext(Thread.currentThread(), group);
             if (firstArg instanceof AsyncRunnable) {
                 args[0] = new AsyncRunnableDecorator(context, recorder, (AsyncRunnable)firstArg, rpcContext);
             } else if (firstArg instanceof AsyncCallable) {
@@ -66,7 +66,7 @@ class RunnableDecoratorInterceptor implements InvocationHandler {
 
 class RunnableDecorator implements AsyncRunnable {
 
-    private Context context;
+    private AsyncContext context;
 
     private FlightRecorder recorder;
 
@@ -74,7 +74,7 @@ class RunnableDecorator implements AsyncRunnable {
 
     private Object rpcContext;
 
-    RunnableDecorator(@NonNull Context context,
+    RunnableDecorator(@NonNull AsyncContext context,
                       @NonNull FlightRecorder recorder,
                       @NonNull Runnable runnable,
                       Object rpcContext) {
@@ -125,18 +125,18 @@ class RunnableDecorator implements AsyncRunnable {
     public void execute() { }
 
     @Override
-    public void beforeExecute(final Context context) { }
+    public void beforeExecute(final AsyncContext context) { }
 
     @Override
-    public void afterExecute(final Context context) { }
+    public void afterExecute(final AsyncContext context) { }
 
     @Override
-    public void afterThrowing(Throwable t, final Context context) { }
+    public void afterThrowing(Throwable t, final AsyncContext context) { }
 }
 
 class CallableDecorator implements AsyncCallable {
 
-    private Context context;
+    private AsyncContext context;
 
     private FlightRecorder recorder;
 
@@ -144,7 +144,7 @@ class CallableDecorator implements AsyncCallable {
 
     private Object rpcContext;
 
-    CallableDecorator(@NonNull Context context,
+    CallableDecorator(@NonNull AsyncContext context,
                       @NonNull FlightRecorder recorder,
                       @NonNull Callable callable,
                       Object rpcContext) {
@@ -201,18 +201,18 @@ class CallableDecorator implements AsyncCallable {
     }
 
     @Override
-    public void beforeExecute(final Context context) { }
+    public void beforeExecute(final AsyncContext context) { }
 
     @Override
-    public void afterExecute(Object result, final Context context) { }
+    public void afterExecute(Object result, final AsyncContext context) { }
 
     @Override
-    public void afterThrowing(Throwable t, final Context context) { }
+    public void afterThrowing(Throwable t, final AsyncContext context) { }
 }
 
 class AsyncRunnableDecorator implements AsyncRunnable {
 
-    private Context context;
+    private AsyncContext context;
 
     private FlightRecorder recorder;
 
@@ -220,7 +220,7 @@ class AsyncRunnableDecorator implements AsyncRunnable {
 
     private Object rpcContext;
 
-    AsyncRunnableDecorator(@NonNull Context context,
+    AsyncRunnableDecorator(@NonNull AsyncContext context,
                            @NonNull FlightRecorder recorder,
                            @NonNull AsyncRunnable asyncRunnable,
                            Object rpcContext) {
@@ -271,24 +271,24 @@ class AsyncRunnableDecorator implements AsyncRunnable {
     public void execute() { }
 
     @Override
-    public void beforeExecute(final Context context) {
+    public void beforeExecute(final AsyncContext context) {
         asyncRunnable.beforeExecute(context);
     }
 
     @Override
-    public void afterExecute(final Context context) {
+    public void afterExecute(final AsyncContext context) {
         asyncRunnable.afterExecute(context);
     }
 
     @Override
-    public void afterThrowing(Throwable t, final Context context) {
+    public void afterThrowing(Throwable t, final AsyncContext context) {
         asyncRunnable.afterThrowing(t, context);
     }
 }
 
 class AsyncCallableDecorator implements AsyncCallable {
 
-    private Context context;
+    private AsyncContext context;
 
     private FlightRecorder recorder;
 
@@ -296,7 +296,7 @@ class AsyncCallableDecorator implements AsyncCallable {
 
     private Object rpcContext;
 
-    AsyncCallableDecorator(@NonNull Context context,
+    AsyncCallableDecorator(@NonNull AsyncContext context,
                            @NonNull FlightRecorder recorder,
                            @NonNull AsyncCallable asyncCallable,
                            Object rpcContext) {
@@ -352,18 +352,18 @@ class AsyncCallableDecorator implements AsyncCallable {
     }
 
     @Override
-    public void beforeExecute(final Context context) {
+    public void beforeExecute(final AsyncContext context) {
         asyncCallable.beforeExecute(context);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public void afterExecute(Object result, final Context context) {
+    public void afterExecute(Object result, final AsyncContext context) {
         asyncCallable.afterExecute(result, context);
     }
 
     @Override
-    public void afterThrowing(Throwable t, final Context context) {
+    public void afterThrowing(Throwable t, final AsyncContext context) {
         asyncCallable.afterThrowing(t, context);
     }
 }

@@ -15,6 +15,8 @@ import javax.validation.ValidatorFactory;
 import javax.validation.executable.ExecutableValidator;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.jbox.trace.tlog.LogEvent;
+import com.alibaba.jbox.trace.tlog.TLogManager;
 import com.alibaba.jbox.utils.JboxUtils;
 
 import com.google.common.base.Strings;

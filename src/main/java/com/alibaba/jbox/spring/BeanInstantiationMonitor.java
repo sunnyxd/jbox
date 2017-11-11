@@ -1,32 +1,30 @@
 package com.alibaba.jbox.spring;
 
-import org.apache.commons.lang3.tuple.Triple;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.PropertyValues;
-import org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessor;
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextRefreshedEvent;
-
 import java.beans.PropertyDescriptor;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.commons.lang3.tuple.Triple;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.PropertyValues;
+import org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessor;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
+
 /**
  * @author jifang.zjf@alibaba-inc.com
  * @version 1.1
  * @since 2017/7/15 07:03:00.
  */
-public class BeanInstantiationMonitor implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
+public class BeanInstantiationMonitor
+    implements InstantiationAwareBeanPostProcessor, ApplicationListener<ContextRefreshedEvent> {
 
     private static final int DEFAULT_TOP = 10;
 
-    private static final Logger logger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-
-    private static final PriorityQueue<Triple<String, String, Long>> queue = new PriorityQueue<>((o1, o2) -> (int) (o2.getRight() - o1.getRight()));
+    private static final PriorityQueue<Triple<String, String, Long>> queue = new PriorityQueue<>(
+        (o1, o2) -> (int)(o2.getRight() - o1.getRight()));
 
     private static final AtomicLong totalCost = new AtomicLong(0L);
 
@@ -50,7 +48,8 @@ public class BeanInstantiationMonitor implements InstantiationAwareBeanPostProce
     }
 
     @Override
-    public PropertyValues postProcessPropertyValues(PropertyValues pvs, PropertyDescriptor[] pds, Object bean, String beanName) throws BeansException {
+    public PropertyValues postProcessPropertyValues(PropertyValues pvs, PropertyDescriptor[] pds, Object bean,
+                                                    String beanName) throws BeansException {
         return pvs;
     }
 
@@ -68,8 +67,9 @@ public class BeanInstantiationMonitor implements InstantiationAwareBeanPostProce
             queue.offer(Triple.of(beanName, beanType, cost));
 
             if (detail) {
-                String message = String.format(" -> bean:'%s' of type [%s] init cost: [%s] ms", beanName, beanType, cost);
-                logger.info(message);
+                String message = String.format(" -> bean:'%s' of type [%s] init cost: [%s] ms", beanName, beanType,
+                    cost);
+                SpringLoggerHelper.info(message);
             }
             return null;
         });
@@ -83,37 +83,36 @@ public class BeanInstantiationMonitor implements InstantiationAwareBeanPostProce
             int top = Math.min(queue.size(), this.top);
             StringBuilder msgBuilder = new StringBuilder(1000);
             msgBuilder
-                    .append("application '")
-                    .append(System.getProperty("project.name", "unnamed"))
-                    .append("' context init total cost: [")
-                    .append(totalCost.get())
-                    .append("] ms,");
+                .append("application '")
+                .append(System.getProperty("project.name", "unnamed"))
+                .append("' context init total cost: [")
+                .append(totalCost.get())
+                .append("] ms,");
             if (!detail) {
                 msgBuilder.append(" set 'BeanInstantiationMonitor.detail = true', show bean init cost detail,");
             }
 
             msgBuilder.append(" top ")
-                    .append(top)
-                    .append(": \n");
-
+                .append(top)
+                .append(": \n");
 
             for (int i = 1; i <= top; ++i) {
                 Triple<String, String, Long> triple = queue.poll();
                 msgBuilder
-                        .append(i < 10 ? "  " : " ")
-                        .append(i)
-                        .append(". bean:'")
-                        .append(triple.getLeft())
-                        .append("', type [")
-                        .append(triple.getMiddle())
-                        .append("], cost: [")
-                        .append(String.format("%.2f", triple.getRight() * 1.0 / 1000))
-                        .append("]s\n");
+                    .append(i < 10 ? "  " : " ")
+                    .append(i)
+                    .append(". bean:'")
+                    .append(triple.getLeft())
+                    .append("', type [")
+                    .append(triple.getMiddle())
+                    .append("], cost: [")
+                    .append(String.format("%.2f", triple.getRight() * 1.0 / 1000))
+                    .append("]s\n");
             }
 
             threadLocals.clear();
             queue.clear();
-            logger.warn(msgBuilder.toString());
+            SpringLoggerHelper.warn(msgBuilder.toString());
         }
     }
 

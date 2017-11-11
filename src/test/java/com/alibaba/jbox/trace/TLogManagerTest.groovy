@@ -1,5 +1,6 @@
 package com.alibaba.jbox.trace
 
+import com.alibaba.jbox.trace.tlog.TLogManager
 import org.springframework.core.io.FileSystemResource
 
 /**

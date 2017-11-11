@@ -28,7 +28,7 @@ public interface AsyncCallable<V> extends java.util.concurrent.Callable<V>, Exec
      *
      * @param context : Executor runtime context;
      */
-    default void beforeExecute(final Context context) { }
+    default void beforeExecute(final AsyncContext context) { }
 
     /**
      * implements like {@code Callable.call()}
@@ -44,7 +44,7 @@ public interface AsyncCallable<V> extends java.util.concurrent.Callable<V>, Exec
      * @param result  : the result of {@code this.execute()} method invoked;
      * @param context : Executor runtime context;
      */
-    default void afterExecute(V result, final Context context) { }
+    default void afterExecute(V result, final AsyncContext context) { }
 
     /**
      * method invoked after {@code this.execute()} throws {@code Exception}.
@@ -52,7 +52,7 @@ public interface AsyncCallable<V> extends java.util.concurrent.Callable<V>, Exec
      * @param t       : {@code execute()} invoke threw Exception;
      * @param context : Executor runtime context;
      */
-    default void afterThrowing(Throwable t, final Context context) { }
+    default void afterThrowing(Throwable t, final AsyncContext context) { }
 
     /**
      * detail info of the task need to invoke.
@@ -71,6 +71,6 @@ public interface AsyncCallable<V> extends java.util.concurrent.Callable<V>, Exec
      */
     @Override
     default V call() throws Exception {
-        throw new ExecutorException("you should not use this method!!!");
+        return execute();
     }
 }
