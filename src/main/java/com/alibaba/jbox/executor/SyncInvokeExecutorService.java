@@ -6,6 +6,8 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author jifang.zjf@alibaba-inc.com
@@ -14,12 +16,16 @@ import com.google.common.base.Preconditions;
  */
 class SyncInvokeExecutorService extends AbstractExecutorService {
 
+    private static final Logger logger = LoggerFactory.getLogger(SyncInvokeExecutorService.class);
+
     @Override
     public void shutdown() {
+        logger.info("shutdown.");
     }
 
     @Override
     public List<Runnable> shutdownNow() {
+        logger.info("shutdownNow.");
         return Collections.emptyList();
     }
 
@@ -40,7 +46,7 @@ class SyncInvokeExecutorService extends AbstractExecutorService {
 
     @Override
     public void execute(Runnable command) {
-        Preconditions.checkNotNull(command);
+        Preconditions.checkNotNull(command, "command can not be null.");
         command.run();
     }
 }

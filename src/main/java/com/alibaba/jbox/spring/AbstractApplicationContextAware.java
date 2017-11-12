@@ -20,6 +20,6 @@ public abstract class AbstractApplicationContextAware implements ApplicationCont
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         AbstractApplicationContextAware.applicationContext = applicationContext;
-        SpringLoggerHelper.info("{}'s applicationContext been autowired", this.getClass().getName());
+        SpringLoggerHelper.info("{}'s applicationContext been autowired.", this.getClass().getName());
     }
 }
