@@ -1,6 +1,6 @@
 <configuration>
 
-    <property name="pattern" value="%d %p [%t] %c{20} %X{traceId:--} %m%n"/>
+    <property name="pattern" value="%date %relative %p [%t] %c{20} %X{traceId} %file %m%n"/>
 
     <appender name="STD_OUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

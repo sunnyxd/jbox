@@ -1,56 +1,57 @@
-package com.alibaba.jbox;
+package com.alibaba.jbox.utils;
 
-import com.alibaba.jbox.utils.Performer;
+import com.alibaba.jbox.executor.ExecutorLoggerInner;
+
+import org.junit.Test;
 
 /**
  * @author jifang
  * @since 2016/11/10 下午5:07.
  */
-public class PerformerTest {
+public class PerformerTest implements ExecutorLoggerInner {
 
-    public static void main(String[] args) {
-
+    @Test
+    public void testPerformer() {
 
         for (int i = 0; i < 1000000; ++i) {
         }
 
-        Performer analyzer = new Performer();
+        Performer analyzer = new Performer("test");
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
 
-        double qps = analyzer.qps();
+        double qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
+        qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
+        qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
+        qps = analyzer.tps();
         System.out.println(qps);
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
-        System.out.println(qps);
+        System.out.println(analyzer.rtString());
 
         for (int i = 0; i < 10000; ++i) {
             analyzer.invoked();
         }
-        qps = analyzer.qps();
-        System.out.println(qps);
+        System.out.println(analyzer.tpsString());
+
     }
 }

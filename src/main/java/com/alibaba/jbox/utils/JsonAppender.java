@@ -1,9 +1,11 @@
 package com.alibaba.jbox.utils;
 
-import com.alibaba.fastjson.JSON;
-import com.google.common.base.Strings;
-
 import java.util.Collections;
+import java.util.Map;
+
+import com.alibaba.fastjson.JSON;
+
+import com.google.common.base.Strings;
 
 /**
  * @author jifang
@@ -25,14 +27,37 @@ public class JsonAppender {
         if (sb.length() <= 0) {
             sb.append(JSON.toJSONString(Collections.singletonMap(name, value)));
         } else {
-            int index = sb.lastIndexOf("}");
             String appendStr;
             if (value instanceof String) {
                 appendStr = String.format(",\"%s\":\"%s\"", name, value);
             } else {
                 appendStr = String.format(",\"%s\":%s", name, value);
             }
-            sb.insert(index, appendStr);
+
+            sb.insert(sb.lastIndexOf("}"), appendStr);
+        }
+        return this;
+    }
+
+    public JsonAppender append(Map<String, Object> map) {
+        if (sb.length() <= 0) {
+            sb.append(JSON.toJSONString(map));
+        } else {
+            StringBuilder appendBuilder = new StringBuilder();
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                appendBuilder
+                    .append(",\"")
+                    .append(entry.getKey())
+                    .append("\":");
+
+                if (entry.getValue() instanceof String) {
+                    appendBuilder.append("\"").append(entry.getValue()).append("\"");
+                } else {
+                    appendBuilder.append(entry.getValue());
+                }
+            }
+
+            sb.insert(sb.lastIndexOf("}"), appendBuilder);
         }
         return this;
     }

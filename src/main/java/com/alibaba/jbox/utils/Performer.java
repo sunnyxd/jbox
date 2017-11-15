@@ -1,8 +1,5 @@
 package com.alibaba.jbox.utils;
 
-
-import com.alibaba.jbox.annotation.ThreadSafe;
-
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -13,7 +10,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author jifang
  * @since 16/11/9 下午2:53.
  */
-@ThreadSafe
 public class Performer {
 
     private AtomicLong totalInvokeCount = new AtomicLong(0);
@@ -24,8 +20,11 @@ public class Performer {
 
     private volatile long todayEndMillis;
 
-    public Performer() {
-        init();
+    private String taskInfo;
+
+    public Performer(String taskInfo) {
+        this.taskInfo = taskInfo;
+        reset();
     }
 
     public long invoked() {
@@ -40,30 +39,48 @@ public class Performer {
         return totalInvokeCount.get();
     }
 
-    public double qps() {
+    public String tpsString() {
+        return String.format("%.2f", tps());
+    }
+
+    /**
+     * can't invoke with {@code this.rt()} at same time
+     *
+     * @return total process invoke count in 1 second.
+     */
+    public double tps() {
         long curMillis = System.currentTimeMillis();
         long curCount = totalInvokeCount.get();
 
         long invokedCount = curCount - befCount;
         long usedMillis = curMillis - befMillis;
 
-        double qps;
+        double tps;
         if (usedMillis == 0) {
-            qps = invokedCount * 1000.0;
+            tps = invokedCount * 1000.0;
         } else {
-            qps = invokedCount * 1000.0 / usedMillis;
+            tps = invokedCount * 1000.0 / usedMillis;
             befMillis = curMillis;
         }
         befCount = curCount;
 
         // reset everyday
         if (curMillis > todayEndMillis) {
-            init();
+            reset();
         }
 
-        return qps;
+        return tps;
     }
 
+    public String rtString() {
+        return String.format("%.2f", rt());
+    }
+
+    /**
+     * can't invoke with {@code this.tps()} at same time
+     *
+     * @return running consume time.
+     */
     public double rt() {
         long curMillis = System.currentTimeMillis();
         long curCount = totalInvokeCount.get();
@@ -81,13 +98,13 @@ public class Performer {
         befCount = curCount;
 
         if (curMillis > todayEndMillis) {
-            init();
+            reset();
         }
 
         return rt;
     }
 
-    private void init() {
+    private void reset() {
         befMillis = System.currentTimeMillis();
         todayEndMillis = endMillisToday();
         befCount = 0;
@@ -104,7 +121,7 @@ public class Performer {
         return calendar.getTimeInMillis();
     }
 
-    public static void main(String[] args) {
-        System.out.println();
+    public String getTaskInfo() {
+        return taskInfo;
     }
 }

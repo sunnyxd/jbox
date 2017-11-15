@@ -1,11 +1,11 @@
-package com.alibaba.jbox;
-
-import com.alibaba.jbox.utils.DateUtils;
+package com.alibaba.jbox.utils;
 
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+
+import org.junit.Test;
 
 /**
  * @author jifang
@@ -14,20 +14,19 @@ import java.util.List;
 public class DateUtilTest {
 
     /**
-     * 6个线程 跑10万次 format parse 查看耗时 & 正确性
-     *
-     * @param args
+     * 6个线程 跑10万次 timeFormat timeParse 查看耗时 & 正确性
      */
-    public static void main(String[] args) {
+    @Test
+    public void testDataUtils() {
 
         long start = System.currentTimeMillis();
         final String[] data = {
-                "1999-11-01 11:11:11",
-                "2001-07-08 06:06:06",
-                "2007-01-31 02:28:31",
-                "1999-11-01 11:11:11",
-                "2001-07-08 06:06:06",
-                "2007-01-31 02:28:31"};
+            "1999-11-01 11:11:11",
+            "2001-07-08 06:06:06",
+            "2007-01-31 02:28:31",
+            "1999-11-01 11:11:11",
+            "2001-07-08 06:06:06",
+            "2007-01-31 02:28:31"};
 
         List<Thread> threads = new ArrayList<>(data.length);
         for (int i = 0; i < data.length; ++i) {
@@ -38,18 +37,18 @@ public class DateUtilTest {
                     try {
                         for (int j = 0; j < 100_000; j++) {
                             String from = data[i2];
-                            Date d = DateUtils.parse(from);
-                            String to = DateUtils.format(d);
+                            Date d = DateUtils.timeParse(from);
+                            String to = DateUtils.timeFormat(d);
                             System.out.println("i: " + i2 + "\tj: " + j + "\tThreadID: "
-                                    + Thread.currentThread().getId() + "\tThreadName: "
-                                    + Thread.currentThread().getName() + "\t" + from + "\t" + to);
+                                + Thread.currentThread().getId() + "\tThreadName: "
+                                + Thread.currentThread().getName() + "\t" + from + "\t" + to);
                             if (!from.equals(to)) {
                                 throw new RuntimeException("date conversion failed after " + j
-                                        + " iterations. Expected " + from + " but got " + to);
+                                    + " iterations. Expected " + from + " but got " + to);
                             }
                         }
                     } catch (ParseException e) {
-                        throw new RuntimeException("parse failed");
+                        throw new RuntimeException("timeParse failed");
                     }
                 }
             }, "formatter_test_thread_" + i);
