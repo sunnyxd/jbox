@@ -150,7 +150,7 @@ public class TLogManager extends AbstractTLogConfig implements InitializingBean 
 
         private void logAsMulti(LogEvent logEvent, List<Object> logEntities, List<ELConfig> notMultiELConfigs,
                                 int multiIdx, ELConfig multiCfg) {
-            // 0. 首先将not-multi的config表达式计算出站位值(not-multi-config内只有paramEL有效)
+            // 0. 首先将not-multi的config表达式计算出占位值(not-multi-config内只有paramEL有效)
             List<String> notMultiParamELs = notMultiELConfigs.stream().map(ELConfig::getParamEL).collect(toList());
             List<Object> notMultiEvalResults = SpELHelpers.evalSpelWithEvent(logEvent, notMultiParamELs,
                 getPlaceHolder());

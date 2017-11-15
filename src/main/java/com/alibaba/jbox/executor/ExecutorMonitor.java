@@ -63,11 +63,11 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
     private long period = _1M_INTERVAL;
 
-    private Integer maxGroupSize = null;
+    private Integer maxGroupSize;
 
     @Override
     public void invoke() throws Exception {
-        List<Entry<String, ExecutorService>> entrySet = executors.entrySet()
+        List<Entry<String, ExecutorService>> executorSortedSet = executors.entrySet()
             .stream()
             .filter(entry -> !(entry.getValue() instanceof SyncInvokeExecutorService))
             .sorted((e1, e2) -> e2.getKey().length() - e1.getKey().length())
@@ -75,19 +75,21 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
 
         StringBuilder logBuilder = new StringBuilder(128);
         // append group size:
-        logBuilder.append("executors group [").append(entrySet.size()).append("]:\n");
-        for (Map.Entry<String, ExecutorService> entry : entrySet) {
+        logBuilder.append("executor group size [").append(executorSortedSet.size()).append("]:\n");
+
+        for (Map.Entry<String, ExecutorService> entry : executorSortedSet) {
             String group = entry.getKey();
             ThreadPoolExecutor executor = getThreadPoolExecutor(entry.getValue());
             if (executor == null) {
                 continue;
             }
 
+            Object[] recorder = getFlightRecorder(group);
+
             // append group detail:
             BlockingQueue<Runnable> queue = executor.getQueue();
-            Object[] flightRecorder = getFlightRecorder(group);
             logBuilder.append(String.format(
-                "%-" + getMaxGroupSize(entrySet) + "s > pool:[%s], active:[%d], core:[%d], max:[%d], "
+                "%-" + getMaxGroupSize(executorSortedSet) + "s > pool:[%s], active:[%d], core:[%d], max:[%d], "
                     + "success:[%s], failure:[%s], "
                     + "rt:[%s], tps:[%s], "
                     + "queued:[%d], remains:[%d]\n",
@@ -107,14 +109,14 @@ public class ExecutorMonitor extends AbstractApplicationContextAware
                 /*
                  * success, failure
                  */
-                numberFormat(flightRecorder[0]),
-                numberFormat(flightRecorder[1]),
+                numberFormat(recorder[0]),
+                numberFormat(recorder[1]),
 
                 /*
                  * rt, tps
                  */
-                String.format("%.2f", (double)flightRecorder[2]),
-                numberFormat(calcTps(group, (long)flightRecorder[3])),
+                String.format("%.2f", (double)recorder[2]),
+                numberFormat(calcTps(group, (long)recorder[3])),
 
                 /*
                  * runnable queue
